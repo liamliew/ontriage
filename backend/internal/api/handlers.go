@@ -4,12 +4,13 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/ontriage/backend/internal/db"
 	"github.com/ontriage/backend/internal/models"
+	"github.com/supabase-community/postgrest-go"
 )
 
 func GetMonitors(c *fiber.Ctx) error {
 	userID := c.Locals("userID").(string)
 	var monitors []models.Monitor
-	err := db.Client.DB.From("monitors").Select("*").Eq("user_id", userID).Execute(&monitors)
+	err := db.Client.From("monitors").Select("*").Eq("user_id", userID).Execute(&monitors)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -24,7 +25,7 @@ func CreateMonitor(c *fiber.Ctx) error {
 	}
 	monitor.UserID = userID
 
-	_, _, err := db.Client.DB.From("monitors").Insert(monitor).Execute(&monitor)
+	_, _, err := db.Client.From("monitors").Insert(monitor).Execute(&monitor)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -39,7 +40,7 @@ func UpdateMonitor(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	_, _, err := db.Client.DB.From("monitors").Update(updates).Eq("id", id).Eq("user_id", userID).Execute(nil)
+	_, _, err := db.Client.From("monitors").Update(updates).Eq("id", id).Eq("user_id", userID).Execute(nil)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -50,7 +51,7 @@ func DeleteMonitor(c *fiber.Ctx) error {
 	userID := c.Locals("userID").(string)
 	id := c.Params("id")
 
-	_, _, err := db.Client.DB.From("monitors").Delete().Eq("id", id).Eq("user_id", userID).Execute(nil)
+	_, _, err := db.Client.From("monitors").Delete().Eq("id", id).Eq("user_id", userID).Execute(nil)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -63,13 +64,13 @@ func GetPings(c *fiber.Ctx) error {
 
 	// Verify ownership
 	var monitor models.Monitor
-	err := db.Client.DB.From("monitors").Select("id").Eq("id", id).Eq("user_id", userID).Single().Execute(&monitor)
+	err := db.Client.From("monitors").Select("id").Eq("id", id).Eq("user_id", userID).Single().Execute(&monitor)
 	if err != nil {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "forbidden"})
 	}
 
 	var pings []models.Ping
-	err = db.Client.DB.From("pings").Select("*").Eq("monitor_id", id).Order("checked_at", &db.OrderOptions{Ascending: false}).Limit(100).Execute(&pings)
+	err = db.Client.From("pings").Select("*").Eq("monitor_id", id).Order("checked_at", &postgrest.OrderOpts{Ascending: false}).Limit(100).Execute(&pings)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -82,13 +83,13 @@ func GetIncidents(c *fiber.Ctx) error {
 
 	// Verify ownership
 	var monitor models.Monitor
-	err := db.Client.DB.From("monitors").Select("id").Eq("id", id).Eq("user_id", userID).Single().Execute(&monitor)
+	err := db.Client.From("monitors").Select("id").Eq("id", id).Eq("user_id", userID).Single().Execute(&monitor)
 	if err != nil {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "forbidden"})
 	}
 
 	var incidents []models.Incident
-	err = db.Client.DB.From("incidents").Select("*").Eq("monitor_id", id).Order("started_at", &db.OrderOptions{Ascending: false}).Execute(&incidents)
+	err = db.Client.From("incidents").Select("*").Eq("monitor_id", id).Order("started_at", &postgrest.OrderOpts{Ascending: false}).Execute(&incidents)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -99,7 +100,7 @@ func GetStatusPage(c *fiber.Ctx) error {
 	slug := c.Params("slug")
 
 	var statusPage models.StatusPage
-	err := db.Client.DB.From("status_pages").Select("*").Eq("slug", slug).Single().Execute(&statusPage)
+	err := db.Client.From("status_pages").Select("*").Eq("slug", slug).Single().Execute(&statusPage)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "status page not found"})
 	}
@@ -112,7 +113,7 @@ func GetStatusPage(c *fiber.Ctx) error {
 	var pageMonitors []struct {
 		MonitorID string `json:"monitor_id"`
 	}
-	err = db.Client.DB.From("status_page_monitors").Select("monitor_id").Eq("status_page_id", statusPage.ID).Execute(&pageMonitors)
+	err = db.Client.From("status_page_monitors").Select("monitor_id").Eq("status_page_id", statusPage.ID).Execute(&pageMonitors)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -123,7 +124,7 @@ func GetStatusPage(c *fiber.Ctx) error {
 	}
 
 	var monitors []models.Monitor
-	err = db.Client.DB.From("monitors").Select("*").In("id", monitorIDs).Execute(&monitors)
+	err = db.Client.From("monitors").Select("*").In("id", monitorIDs).Execute(&monitors)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
