@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -49,9 +50,13 @@ func (w *Worker) Start(ctx context.Context) {
 
 func (w *Worker) reloadMonitors() {
 	var monitors []models.Monitor
-	err := db.Client.From("monitors").Select("*").Eq("is_active", "true").Execute(&monitors)
+	data, _, err := db.Client.From("monitors").Select("*", "exact", false).Eq("is_active", "true").Execute()
 	if err != nil {
 		log.Printf("Error loading monitors: %v", err)
+		return
+	}
+	if err := json.Unmarshal(data, &monitors); err != nil {
+		log.Printf("Error unmarshaling monitors: %v", err)
 		return
 	}
 
@@ -133,7 +138,7 @@ func (w *Worker) ping(m *models.Monitor) {
 		ErrorMessage: errMsg,
 	}
 
-	_, _, err = db.Client.From("pings").Insert(ping).Execute(nil)
+	_, _, err = db.Client.From("pings").Insert(ping, false, "", "", "exact").Execute()
 	if err != nil {
 		log.Printf("Error saving ping for %s: %v", m.Name, err)
 	}
@@ -146,7 +151,10 @@ func (w *Worker) handleIncident(m *models.Monitor, isUp bool) {
 	// Check current state from DB or cache
 	// For simplicity, we query the last incident for this monitor
 	var lastIncident []models.Incident
-	err := db.Client.From("incidents").Select("*").Eq("monitor_id", m.ID).Order("started_at", &postgrest.OrderOpts{Ascending: false}).Limit(1).Execute(&lastIncident)
+	data, _, err := db.Client.From("incidents").Select("*", "exact", false).Eq("monitor_id", m.ID).Order("started_at", &postgrest.OrderOpts{Ascending: false}).Limit(1, "").Execute()
+	if err == nil {
+		_ = json.Unmarshal(data, &lastIncident)
+	}
 	
 	hasActiveIncident := len(lastIncident) > 0 && !lastIncident[0].IsResolved
 
@@ -157,7 +165,7 @@ func (w *Worker) handleIncident(m *models.Monitor, isUp bool) {
 			StartedAt: time.Now(),
 			IsResolved: false,
 		}
-		_, _, err = db.Client.From("incidents").Insert(newIncident).Execute(nil)
+		_, _, err = db.Client.From("incidents").Insert(newIncident, false, "", "", "exact").Execute()
 		if err == nil {
 			_ = integrations.FirePagerDutyAlert(
 				fmt.Sprintf("Monitor Down: %s", m.Name),
@@ -171,7 +179,7 @@ func (w *Worker) handleIncident(m *models.Monitor, isUp bool) {
 		_, _, err = db.Client.From("incidents").Update(map[string]interface{}{
 			"resolved_at": resolvedAt,
 			"is_resolved": true,
-		}).Eq("id", lastIncident[0].ID).Execute(nil)
+		}, "", "exact").Eq("id", lastIncident[0].ID).Execute()
 		
 		if err == nil {
 			_ = integrations.ResolvePagerDutyAlert(m.ID)

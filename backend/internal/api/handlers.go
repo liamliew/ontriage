@@ -1,6 +1,8 @@
 package api
 
 import (
+	"encoding/json"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/ontriage/backend/internal/db"
 	"github.com/ontriage/backend/internal/models"
@@ -10,10 +12,11 @@ import (
 func GetMonitors(c *fiber.Ctx) error {
 	userID := c.Locals("userID").(string)
 	var monitors []models.Monitor
-	err := db.Client.From("monitors").Select("*").Eq("user_id", userID).Execute(&monitors)
+	data, _, err := db.Client.From("monitors").Select("*", "exact", false).Eq("user_id", userID).Execute()
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
+	_ = json.Unmarshal(data, &monitors)
 	return c.JSON(monitors)
 }
 
@@ -25,10 +28,17 @@ func CreateMonitor(c *fiber.Ctx) error {
 	}
 	monitor.UserID = userID
 
-	_, _, err := db.Client.From("monitors").Insert(monitor).Execute(&monitor)
+	data, _, err := db.Client.From("monitors").Insert(monitor, false, "", "", "exact").Execute()
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
+	
+	// Try to unmarshal the returned data into our object (e.g. to get ID)
+	var created []models.Monitor
+	if err := json.Unmarshal(data, &created); err == nil && len(created) > 0 {
+		monitor = created[0]
+	}
+	
 	return c.Status(fiber.StatusCreated).JSON(monitor)
 }
 
@@ -40,7 +50,7 @@ func UpdateMonitor(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	_, _, err := db.Client.From("monitors").Update(updates).Eq("id", id).Eq("user_id", userID).Execute(nil)
+	_, _, err := db.Client.From("monitors").Update(updates, "", "exact").Eq("id", id).Eq("user_id", userID).Execute()
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -51,7 +61,7 @@ func DeleteMonitor(c *fiber.Ctx) error {
 	userID := c.Locals("userID").(string)
 	id := c.Params("id")
 
-	_, _, err := db.Client.From("monitors").Delete().Eq("id", id).Eq("user_id", userID).Execute(nil)
+	_, _, err := db.Client.From("monitors").Delete("", "exact").Eq("id", id).Eq("user_id", userID).Execute()
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -63,17 +73,17 @@ func GetPings(c *fiber.Ctx) error {
 	id := c.Params("id")
 
 	// Verify ownership
-	var monitor models.Monitor
-	err := db.Client.From("monitors").Select("id").Eq("id", id).Eq("user_id", userID).Single().Execute(&monitor)
+	_, _, err := db.Client.From("monitors").Select("id", "exact", false).Eq("id", id).Eq("user_id", userID).Single().Execute()
 	if err != nil {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "forbidden"})
 	}
 
 	var pings []models.Ping
-	err = db.Client.From("pings").Select("*").Eq("monitor_id", id).Order("checked_at", &postgrest.OrderOpts{Ascending: false}).Limit(100).Execute(&pings)
+	data, _, err := db.Client.From("pings").Select("*", "exact", false).Eq("monitor_id", id).Order("checked_at", &postgrest.OrderOpts{Ascending: false}).Limit(100, "").Execute()
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
+	_ = json.Unmarshal(data, &pings)
 	return c.JSON(pings)
 }
 
@@ -82,17 +92,17 @@ func GetIncidents(c *fiber.Ctx) error {
 	id := c.Params("id")
 
 	// Verify ownership
-	var monitor models.Monitor
-	err := db.Client.From("monitors").Select("id").Eq("id", id).Eq("user_id", userID).Single().Execute(&monitor)
+	_, _, err := db.Client.From("monitors").Select("id", "exact", false).Eq("id", id).Eq("user_id", userID).Single().Execute()
 	if err != nil {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "forbidden"})
 	}
 
 	var incidents []models.Incident
-	err = db.Client.From("incidents").Select("*").Eq("monitor_id", id).Order("started_at", &postgrest.OrderOpts{Ascending: false}).Execute(&incidents)
+	data, _, err := db.Client.From("incidents").Select("*", "exact", false).Eq("monitor_id", id).Order("started_at", &postgrest.OrderOpts{Ascending: false}).Execute()
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
+	_ = json.Unmarshal(data, &incidents)
 	return c.JSON(incidents)
 }
 
@@ -100,10 +110,12 @@ func GetStatusPage(c *fiber.Ctx) error {
 	slug := c.Params("slug")
 
 	var statusPage models.StatusPage
-	err := db.Client.From("status_pages").Select("*").Eq("slug", slug).Single().Execute(&statusPage)
+	data, _, err := db.Client.From("status_pages").Select("*", "exact", false).Eq("slug", slug).Single().Execute()
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "status page not found"})
 	}
+	
+	_ = json.Unmarshal(data, &statusPage)
 
 	if !statusPage.IsPublic {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "status page is private"})
@@ -113,10 +125,11 @@ func GetStatusPage(c *fiber.Ctx) error {
 	var pageMonitors []struct {
 		MonitorID string `json:"monitor_id"`
 	}
-	err = db.Client.From("status_page_monitors").Select("monitor_id").Eq("status_page_id", statusPage.ID).Execute(&pageMonitors)
+	pmData, _, err := db.Client.From("status_page_monitors").Select("monitor_id", "exact", false).Eq("status_page_id", statusPage.ID).Execute()
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
+	_ = json.Unmarshal(pmData, &pageMonitors)
 
 	monitorIDs := make([]string, len(pageMonitors))
 	for i, pm := range pageMonitors {
@@ -124,9 +137,14 @@ func GetStatusPage(c *fiber.Ctx) error {
 	}
 
 	var monitors []models.Monitor
-	err = db.Client.From("monitors").Select("*").In("id", monitorIDs).Execute(&monitors)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	if len(monitorIDs) > 0 {
+		mD, _, err := db.Client.From("monitors").Select("*", "exact", false).In("id", monitorIDs).Execute()
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+		_ = json.Unmarshal(mD, &monitors)
+	} else {
+		monitors = []models.Monitor{}
 	}
 
 	return c.JSON(fiber.Map{
