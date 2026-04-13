@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { SignedIn, SignedOut } from '@clerk/nextjs'
 
 export default function LandingPage() {
   return (
@@ -8,18 +9,28 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
           <span className="font-semibold text-white tracking-tight">OnTriage</span>
           <nav className="flex items-center gap-6">
-            <Link
-              href="/sign-in"
-              className="text-sm text-neutral-400 hover:text-white transition-colors"
-            >
-              Sign in
-            </Link>
-            <Link
-              href="/sign-up"
-              className="text-sm bg-white text-black px-3 py-1.5 rounded-md font-medium hover:bg-neutral-200 transition-colors"
-            >
-              Get started
-            </Link>
+            <SignedOut>
+              <Link
+                href="/sign-in"
+                className="text-sm text-neutral-400 hover:text-white transition-colors"
+              >
+                Sign in
+              </Link>
+              <Link
+                href="/sign-up"
+                className="text-sm bg-white text-black px-3 py-1.5 rounded-md font-medium hover:bg-neutral-200 transition-colors"
+              >
+                Get started
+              </Link>
+            </SignedOut>
+            <SignedIn>
+              <Link
+                href="/dashboard"
+                className="text-sm bg-white text-black px-3 py-1.5 rounded-md font-medium hover:bg-neutral-200 transition-colors"
+              >
+                Dashboard
+              </Link>
+            </SignedIn>
           </nav>
         </div>
       </header>
