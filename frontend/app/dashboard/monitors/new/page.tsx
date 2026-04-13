@@ -27,7 +27,7 @@ export default function NewMonitorPage() {
     name: '',
     url: '',
     type: 'http',
-    interval_seconds: 60,
+    interval_sec: 60,
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -99,8 +99,8 @@ export default function NewMonitorPage() {
 
         <Field label="Check interval">
           <select
-            value={form.interval_seconds}
-            onChange={(e) => setForm({ ...form, interval_seconds: Number(e.target.value) })}
+            value={form.interval_sec}
+            onChange={(e) => setForm({ ...form, interval_sec: Number(e.target.value) })}
             className="input"
           >
             {INTERVALS.map((i) => (

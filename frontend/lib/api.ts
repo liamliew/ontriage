@@ -5,7 +5,7 @@ export interface Monitor {
   name: string
   url: string
   type: 'http' | 'tcp' | 'ping'
-  interval_seconds: number
+  interval_sec: number
   status: 'up' | 'down' | 'paused' | 'pending'
   last_checked_at: string | null
   created_at: string
@@ -16,14 +16,14 @@ export interface MonitorCreate {
   name: string
   url: string
   type: 'http' | 'tcp' | 'ping'
-  interval_seconds: number
+  interval_sec: number
 }
 
 export interface MonitorUpdate {
   name?: string
   url?: string
   type?: 'http' | 'tcp' | 'ping'
-  interval_seconds?: number
+  interval_sec?: number
 }
 
 export interface Ping {

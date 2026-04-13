@@ -97,7 +97,7 @@ export default async function MonitorDetailPage({
         <MiniStat label="Type" value={monitor.type.toUpperCase()} />
         <MiniStat
           label="Interval"
-          value={`${monitor.interval_seconds >= 60 ? monitor.interval_seconds / 60 + 'm' : monitor.interval_seconds + 's'}`}
+          value={`${monitor.interval_sec >= 60 ? monitor.interval_sec / 60 + 'm' : monitor.interval_sec + 's'}`}
         />
         <MiniStat label="Avg latency" value={avgLatency !== null ? `${avgLatency} ms` : '—'} />
       </div>

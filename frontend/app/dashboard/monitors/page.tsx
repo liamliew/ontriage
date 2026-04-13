@@ -79,7 +79,7 @@ export default async function MonitorsPage() {
               <span className="text-sm text-white truncate">{monitor.name}</span>
               <span className="text-sm text-neutral-400 truncate">{monitor.url}</span>
               <span className="text-xs text-neutral-500 uppercase tracking-wide">{monitor.type}</span>
-              <span className="text-xs text-neutral-500">{formatInterval(monitor.interval_seconds)}</span>
+              <span className="text-xs text-neutral-500">{formatInterval(monitor.interval_sec)}</span>
               <span className="flex items-center gap-2">
                 <span className={`h-2 w-2 rounded-full flex-shrink-0 ${statusDot(monitor.status)}`} />
                 <span className="text-xs text-neutral-400 capitalize">{monitor.status}</span>

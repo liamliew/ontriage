@@ -3,14 +3,18 @@ package models
 import "time"
 
 type Monitor struct {
-	ID              string    `json:"id,omitempty" db:"id"`
-	UserID          string    `json:"user_id,omitempty" db:"user_id"`
-	Name            string    `json:"name" db:"name"`
-	URL             string    `json:"url" db:"url"`
-	Method          string    `json:"method,omitempty" db:"method"`
-	IntervalSec     int       `json:"interval_sec" db:"interval_sec"`
-	IsActive        bool      `json:"is_active,omitempty" db:"is_active"`
-	CreatedAt       time.Time `json:"created_at,omitempty" db:"created_at"`
+	ID            string     `json:"id,omitempty" db:"id"`
+	UserID        string     `json:"user_id,omitempty" db:"user_id"`
+	Name          string     `json:"name" db:"name"`
+	URL           string     `json:"url" db:"url"`
+	Type          string     `json:"type" db:"type"`
+	Method        string     `json:"method,omitempty" db:"method"`
+	IntervalSec   int        `json:"interval_sec" db:"interval_sec"`
+	Status        string     `json:"status,omitempty" db:"status"`
+	IsActive      bool       `json:"is_active,omitempty" db:"is_active"`
+	LastCheckedAt *time.Time `json:"last_checked_at,omitempty" db:"last_checked_at"`
+	CreatedAt     time.Time  `json:"created_at,omitempty" db:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at,omitempty" db:"updated_at"`
 }
 
 type Ping struct {
