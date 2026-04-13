@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { SignedIn, SignedOut } from '@clerk/nextjs'
+import { Show } from '@clerk/nextjs'
 
 export default function LandingPage() {
   return (
@@ -9,7 +9,7 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
           <span className="font-semibold text-white tracking-tight">OnTriage</span>
           <nav className="flex items-center gap-6">
-            <SignedOut>
+            <Show when="signed-out">
               <Link
                 href="/sign-in"
                 className="text-sm text-neutral-400 hover:text-white transition-colors"
@@ -22,15 +22,15 @@ export default function LandingPage() {
               >
                 Get started
               </Link>
-            </SignedOut>
-            <SignedIn>
+            </Show>
+            <Show when="signed-in">
               <Link
                 href="/dashboard"
                 className="text-sm bg-white text-black px-3 py-1.5 rounded-md font-medium hover:bg-neutral-200 transition-colors"
               >
                 Dashboard
               </Link>
-            </SignedIn>
+            </Show>
           </nav>
         </div>
       </header>
