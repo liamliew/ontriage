@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	sentryfiber "github.com/getsentry/sentry-go/fiber"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
@@ -54,6 +55,13 @@ func main() {
 		AllowMethods: "GET,POST,PATCH,DELETE,OPTIONS",
 		AllowHeaders: "Authorization,Content-Type",
 	}))
+	
+	// Initialize Sentry middleware
+	app.Use(sentryfiber.New(sentryfiber.Options{
+		Repanic:         true,
+		WaitForDelivery: true,
+	}))
+
 	app.Use(logger.New())
 	app.Use(recover.New())
 

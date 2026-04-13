@@ -8,7 +8,7 @@ type Monitor struct {
 	Name            string    `json:"name" db:"name"`
 	URL             string    `json:"url" db:"url"`
 	Method          string    `json:"method,omitempty" db:"method"`
-	IntervalSeconds int       `json:"interval_seconds" db:"interval_sec"`
+	IntervalSec     int       `json:"interval_sec" db:"interval_sec"`
 	IsActive        bool      `json:"is_active,omitempty" db:"is_active"`
 	CreatedAt       time.Time `json:"created_at,omitempty" db:"created_at"`
 }

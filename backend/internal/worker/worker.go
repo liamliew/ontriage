@@ -100,7 +100,7 @@ func (w *Worker) stopAll() {
 }
 
 func (w *Worker) runMonitor(m *models.Monitor, stopChan chan struct{}) {
-	ticker := time.NewTicker(time.Duration(m.IntervalSeconds) * time.Second)
+	ticker := time.NewTicker(time.Duration(m.IntervalSec) * time.Second)
 	defer ticker.Stop()
 
 	for {
