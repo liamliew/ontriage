@@ -3,45 +3,41 @@ package models
 import "time"
 
 type Monitor struct {
-	ID            string     `json:"id,omitempty" db:"id"`
-	UserID        string     `json:"user_id,omitempty" db:"user_id"`
-	Name          string     `json:"name" db:"name"`
-	URL           string     `json:"url" db:"url"`
-	Type          string     `json:"type" db:"type"`
-	Method        string     `json:"method,omitempty" db:"method"`
-	IntervalSec   int        `json:"interval_sec" db:"interval_sec"`
-	Status        string     `json:"status,omitempty" db:"status"`
-	IsActive      bool       `json:"is_active,omitempty" db:"is_active"`
-	LastCheckedAt *time.Time `json:"last_checked_at,omitempty" db:"last_checked_at"`
-	CreatedAt     time.Time  `json:"created_at,omitempty" db:"created_at"`
-	UpdatedAt     time.Time  `json:"updated_at,omitempty" db:"updated_at"`
+	ID          string     `json:"id,omitempty" db:"id"`
+	UserID      string     `json:"user_id,omitempty" db:"user_id"`
+	Name        string     `json:"name" db:"name"`
+	URL         string     `json:"url" db:"url"`
+	Method      string     `json:"method,omitempty" db:"method"`
+	IntervalSec int        `json:"interval_sec" db:"interval_sec"`
+	IsActive    bool       `json:"is_active,omitempty" db:"is_active"`
+	CreatedAt   *time.Time `json:"created_at,omitempty" db:"created_at"`
 }
 
 type Ping struct {
-	ID           string    `json:"id" db:"id"`
+	ID           string    `json:"id,omitempty" db:"id"`
 	MonitorID    string    `json:"monitor_id" db:"monitor_id"`
-	CheckedAt    time.Time `json:"checked_at" db:"checked_at"`
+	CheckedAt    time.Time `json:"checked_at,omitempty" db:"checked_at"`
 	StatusCode   int       `json:"status_code" db:"status_code"`
 	LatencyMs    int       `json:"latency_ms" db:"latency_ms"`
 	IsUp         bool      `json:"is_up" db:"is_up"`
-	ErrorMessage string    `json:"error_message" db:"error_message"`
+	ErrorMessage string    `json:"error_message,omitempty" db:"error_message"`
 }
 
 type Incident struct {
-	ID         string     `json:"id" db:"id"`
+	ID         string     `json:"id,omitempty" db:"id"`
 	MonitorID  string     `json:"monitor_id" db:"monitor_id"`
-	StartedAt  time.Time  `json:"started_at" db:"started_at"`
-	ResolvedAt *time.Time `json:"resolved_at" db:"resolved_at"`
+	StartedAt  time.Time  `json:"started_at,omitempty" db:"started_at"`
+	ResolvedAt *time.Time `json:"resolved_at,omitempty" db:"resolved_at"`
 	IsResolved bool       `json:"is_resolved" db:"is_resolved"`
 }
 
 type StatusPage struct {
-	ID        string    `json:"id" db:"id"`
-	UserID    string    `json:"user_id" db:"user_id"`
-	Slug      string    `json:"slug" db:"slug"`
-	Title     string    `json:"title" db:"title"`
-	IsPublic  bool      `json:"is_public" db:"is_public"`
-	CreatedAt time.Time `json:"created_at" db:"created_at"`
+	ID        string     `json:"id,omitempty" db:"id"`
+	UserID    string     `json:"user_id,omitempty" db:"user_id"`
+	Slug      string     `json:"slug" db:"slug"`
+	Title     string     `json:"title" db:"title"`
+	IsPublic  bool       `json:"is_public" db:"is_public"`
+	CreatedAt *time.Time `json:"created_at,omitempty" db:"created_at"`
 }
 
 type StatusPageMonitor struct {
