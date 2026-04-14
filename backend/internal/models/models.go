@@ -3,14 +3,19 @@ package models
 import "time"
 
 type Monitor struct {
-	ID          string     `json:"id,omitempty" db:"id"`
-	UserID      string     `json:"user_id,omitempty" db:"user_id"`
-	Name        string     `json:"name" db:"name"`
-	URL         string     `json:"url" db:"url"`
-	Method      string     `json:"method,omitempty" db:"method"`
-	IntervalSec int        `json:"interval_sec" db:"interval_sec"`
-	IsActive    bool       `json:"is_active,omitempty" db:"is_active"`
-	CreatedAt   *time.Time `json:"created_at,omitempty" db:"created_at"`
+	ID                string            `json:"id,omitempty" db:"id"`
+	UserID            string            `json:"user_id,omitempty" db:"user_id"`
+	Name              string            `json:"name" db:"name"`
+	URL               string            `json:"url" db:"url"`
+	Method            string            `json:"method,omitempty" db:"method"`
+	IntervalSec       int               `json:"interval_sec" db:"interval_sec"`
+	IsActive          bool              `json:"is_active,omitempty" db:"is_active"`
+	Headers           map[string]string `json:"headers,omitempty" db:"headers"`
+	Keyword           string            `json:"keyword,omitempty" db:"keyword"`
+	ExpectedStatus    int               `json:"expected_status" db:"expected_status"`
+	TimeoutSec        int               `json:"timeout_sec" db:"timeout_sec"`
+	IncidentThreshold int               `json:"incident_threshold" db:"incident_threshold"`
+	CreatedAt         *time.Time        `json:"created_at,omitempty" db:"created_at"`
 }
 
 type Ping struct {
@@ -19,6 +24,8 @@ type Ping struct {
 	CheckedAt    time.Time `json:"checked_at,omitempty" db:"checked_at"`
 	StatusCode   int       `json:"status_code" db:"status_code"`
 	LatencyMs    int       `json:"latency_ms" db:"latency_ms"`
+	DnsMs        int       `json:"dns_ms" db:"dns_ms"`
+	TlsMs        int       `json:"tls_ms" db:"tls_ms"`
 	IsUp         bool      `json:"is_up" db:"is_up"`
 	ErrorMessage string    `json:"error_message,omitempty" db:"error_message"`
 }

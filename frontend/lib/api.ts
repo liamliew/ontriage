@@ -4,33 +4,55 @@ export interface Monitor {
   id: string
   name: string
   url: string
+  method: string
   interval_sec: number
+  is_active: boolean
   latest_is_up: boolean | null
   last_checked_at: string | null
   created_at: string
   updated_at: string
+  headers?: Record<string, string>
+  keyword?: string
+  expected_status: number
+  timeout_sec: number
+  incident_threshold: number
 }
 
 export interface MonitorCreate {
   name: string
   url: string
+  method?: string
   interval_sec: number
+  headers?: Record<string, string>
+  keyword?: string
+  expected_status?: number
+  timeout_sec?: number
+  incident_threshold?: number
 }
 
 export interface MonitorUpdate {
   name?: string
   url?: string
+  method?: string
   interval_sec?: number
+  is_active?: boolean
+  headers?: Record<string, string>
+  keyword?: string
+  expected_status?: number
+  timeout_sec?: number
+  incident_threshold?: number
 }
 
 export interface Ping {
   id: string
   monitor_id: string
   is_up: boolean
-  status_code: number | null
+  status_code: number
   latency_ms: number
+  dns_ms: number
+  tls_ms: number
   checked_at: string
-  error?: string
+  error_message: string
 }
 
 export interface Incident {
@@ -38,7 +60,7 @@ export interface Incident {
   monitor_id: string
   started_at: string
   resolved_at: string | null
-  duration_ms: number | null
+  is_resolved: boolean
 }
 
 export interface StatusPage {
@@ -70,6 +92,33 @@ export type StatusPageMonitor = Monitor & {
 export interface PublicStatusPageResponse {
   status_page: StatusPage
   monitors: StatusPageMonitor[]
+}
+
+export interface UptimeResponse {
+  uptime_percentage: number
+  total_checks: number
+  up_checks: number
+  down_checks: number
+  days: number
+}
+
+export interface StatsDay {
+  date: string
+  avg_latency_ms: number
+  min_latency_ms: number
+  max_latency_ms: number
+  uptime_percentage: number
+}
+
+export interface StatsResponse {
+  days: StatsDay[]
+}
+
+export interface PaginatedPings {
+  data: Ping[]
+  page: number
+  limit: number
+  total: number
 }
 
 async function apiFetch<T>(
@@ -110,18 +159,28 @@ export function createApiClient(token: string) {
 
     updateMonitor: (id: string, data: MonitorUpdate) =>
       apiFetch<Monitor>(`/monitors/${id}`, token, {
-        method: 'PUT',
+        method: 'PATCH',
         body: JSON.stringify(data),
       }),
 
     deleteMonitor: (id: string) =>
       apiFetch<void>(`/monitors/${id}`, token, { method: 'DELETE' }),
 
-    getMonitorPings: (id: string) =>
-      apiFetch<Ping[]>(`/monitors/${id}/pings`, token),
+    getMonitorPings: (id: string, page = 1, limit = 50, from?: string, to?: string) => {
+      const params = new URLSearchParams({ page: String(page), limit: String(limit) })
+      if (from) params.set('from', from)
+      if (to) params.set('to', to)
+      return apiFetch<PaginatedPings>(`/monitors/${id}/pings?${params}`, token)
+    },
 
     getMonitorIncidents: (id: string) =>
       apiFetch<Incident[]>(`/monitors/${id}/incidents`, token),
+
+    getMonitorUptime: (id: string, days = 30) =>
+      apiFetch<UptimeResponse>(`/monitors/${id}/uptime?days=${days}`, token),
+
+    getMonitorStats: (id: string, days = 7) =>
+      apiFetch<StatsResponse>(`/monitors/${id}/stats?days=${days}`, token),
 
     getStatusPages: () =>
       apiFetch<StatusPage[]>('/status-pages', token),

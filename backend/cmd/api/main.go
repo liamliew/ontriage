@@ -81,6 +81,8 @@ func main() {
 	apiRoutes.Delete("/:id", api.DeleteMonitor)
 	apiRoutes.Get("/:id/pings", api.GetPings)
 	apiRoutes.Get("/:id/incidents", api.GetIncidents)
+	apiRoutes.Get("/:id/uptime", api.GetUptime)
+	apiRoutes.Get("/:id/stats", api.GetStats)
 
 	statusPageRoutes := app.Group("/status-pages", auth.Middleware())
 	statusPageRoutes.Get("/", api.GetStatusPages)

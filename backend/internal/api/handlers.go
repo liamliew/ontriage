@@ -80,23 +80,47 @@ func GetPings(c *fiber.Ctx) error {
 	userID := c.Locals("userID").(string)
 	id := c.Params("id")
 
+	page := c.QueryInt("page", 1)
+	limit := c.QueryInt("limit", 50)
+	if limit > 200 {
+		limit = 200
+	}
+	from := c.Query("from")
+	to := c.Query("to")
+
 	// Verify ownership
 	_, _, err := db.Client.From("monitors").Select("id", "exact", false).Eq("id", id).Eq("user_id", userID).Single().Execute()
 	if err != nil {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "forbidden"})
 	}
 
-	var pings []models.Ping
-	data, _, err := db.Client.From("pings").Select("*", "exact", false).Eq("monitor_id", id).Order("checked_at", &postgrest.OrderOpts{Ascending: false}).Limit(100, "").Execute()
+	query := db.Client.From("pings").Select("*", "exact", false).Eq("monitor_id", id)
+	if from != "" {
+		query = query.Gte("checked_at", from)
+	}
+	if to != "" {
+		query = query.Lte("checked_at", to)
+	}
+
+	offset := (page - 1) * limit
+	data, count, err := query.Order("checked_at", &postgrest.OrderOpts{Ascending: false}).Range(offset, offset+limit-1, "").Execute()
 	if err != nil {
 		sentry.CaptureException(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
+	
+	var pings []models.Ping
 	_ = json.Unmarshal(data, &pings)
 	if pings == nil {
 		pings = []models.Ping{}
 	}
-	return c.JSON(pings)
+	
+	return c.JSON(fiber.Map{
+		"data":  pings,
+		"page":  page,
+		"limit": limit,
+		"total": count,
+	})
 }
 
 func GetIncidents(c *fiber.Ctx) error {
@@ -120,6 +144,139 @@ func GetIncidents(c *fiber.Ctx) error {
 		incidents = []models.Incident{}
 	}
 	return c.JSON(incidents)
+}
+
+func GetUptime(c *fiber.Ctx) error {
+	userID := c.Locals("userID").(string)
+	id := c.Params("id")
+	days := c.QueryInt("days", 30)
+
+	// Verify ownership
+	_, _, err := db.Client.From("monitors").Select("id", "exact", false).Eq("id", id).Eq("user_id", userID).Single().Execute()
+	if err != nil {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "forbidden"})
+	}
+
+	fromTime := time.Now().AddDate(0, 0, -days).Format(time.RFC3339)
+
+	var pings []models.Ping
+	data, _, err := db.Client.From("pings").Select("is_up", "exact", false).Eq("monitor_id", id).Gte("checked_at", fromTime).Execute()
+	if err != nil {
+		sentry.CaptureException(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	_ = json.Unmarshal(data, &pings)
+
+	totalChecks := len(pings)
+	upChecks := 0
+	for _, p := range pings {
+		if p.IsUp {
+			upChecks++
+		}
+	}
+	downChecks := totalChecks - upChecks
+
+	uptimePercentage := float64(100)
+	if totalChecks > 0 {
+		uptimePercentage = float64(upChecks) / float64(totalChecks) * 100
+	}
+
+	return c.JSON(fiber.Map{
+		"uptime_percentage": uptimePercentage,
+		"total_checks":      totalChecks,
+		"up_checks":         upChecks,
+		"down_checks":       downChecks,
+		"days":              days,
+	})
+}
+
+func GetStats(c *fiber.Ctx) error {
+	userID := c.Locals("userID").(string)
+	id := c.Params("id")
+	days := c.QueryInt("days", 7)
+
+	// Verify ownership
+	_, _, err := db.Client.From("monitors").Select("id", "exact", false).Eq("id", id).Eq("user_id", userID).Single().Execute()
+	if err != nil {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "forbidden"})
+	}
+
+	fromTime := time.Now().AddDate(0, 0, -days).Format(time.RFC3339)
+
+	var pings []models.Ping
+	data, _, err := db.Client.From("pings").Select("latency_ms, is_up, checked_at", "exact", false).Eq("monitor_id", id).Gte("checked_at", fromTime).Execute()
+	if err != nil {
+		sentry.CaptureException(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	_ = json.Unmarshal(data, &pings)
+
+	type DailyStat struct {
+		Date             string  `json:"date"`
+		AvgLatencyMs     float64 `json:"avg_latency_ms"`
+		MinLatencyMs     int     `json:"min_latency_ms"`
+		MaxLatencyMs     int     `json:"max_latency_ms"`
+		UptimePercentage float64 `json:"uptime_percentage"`
+	}
+
+	type statAgg struct {
+		Date         string
+		MinLatencyMs int
+		MaxLatencyMs int
+		totalLatency int
+		count        int
+		upCount      int
+	}
+
+	statsMap := make(map[string]*statAgg)
+
+	for _, p := range pings {
+		date := p.CheckedAt.Format("2006-01-02")
+		if _, exists := statsMap[date]; !exists {
+			statsMap[date] = &statAgg{
+				Date:         date,
+				MinLatencyMs: p.LatencyMs,
+				MaxLatencyMs: p.LatencyMs,
+			}
+		}
+		stat := statsMap[date]
+		
+		if p.LatencyMs < stat.MinLatencyMs {
+			stat.MinLatencyMs = p.LatencyMs
+		}
+		if p.LatencyMs > stat.MaxLatencyMs {
+			stat.MaxLatencyMs = p.LatencyMs
+		}
+		stat.totalLatency += p.LatencyMs
+		stat.count++
+		if p.IsUp {
+			stat.upCount++
+		}
+	}
+
+	var result []DailyStat
+	for _, stat := range statsMap {
+		avgLatency := float64(0)
+		uptimePct := float64(0)
+		if stat.count > 0 {
+			avgLatency = float64(stat.totalLatency) / float64(stat.count)
+			uptimePct = float64(stat.upCount) / float64(stat.count) * 100
+		}
+		result = append(result, DailyStat{
+			Date:             stat.Date,
+			AvgLatencyMs:     avgLatency,
+			MinLatencyMs:     stat.MinLatencyMs,
+			MaxLatencyMs:     stat.MaxLatencyMs,
+			UptimePercentage: uptimePct,
+		})
+	}
+	if result == nil {
+		result = []DailyStat{}
+	}
+
+	return c.JSON(fiber.Map{
+		"days": result,
+	})
 }
 
 func GetStatusPages(c *fiber.Ctx) error {
