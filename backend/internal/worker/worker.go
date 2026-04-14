@@ -100,8 +100,16 @@ func (w *Worker) stopAll() {
 }
 
 func (w *Worker) runMonitor(m *models.Monitor, stopChan chan struct{}) {
-	ticker := time.NewTicker(time.Duration(m.IntervalSec) * time.Second)
+	interval := m.IntervalSec
+	if interval <= 0 {
+		log.Printf("Monitor %s has invalid interval %d, defaulting to 60s", m.ID, interval)
+		interval = 60
+	}
+	ticker := time.NewTicker(time.Duration(interval) * time.Second)
 	defer ticker.Stop()
+
+	// Perform initial ping immediately
+	w.ping(m)
 
 	for {
 		select {
