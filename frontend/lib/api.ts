@@ -21,13 +21,13 @@ export interface Monitor {
 export interface MonitorCreate {
   name: string
   url: string
-  method?: string
+  method: string
   interval_sec: number
-  headers?: Record<string, string>
-  keyword?: string
-  expected_status?: number
-  timeout_sec?: number
-  incident_threshold?: number
+  headers: Record<string, string>
+  keyword: string
+  expected_status: number
+  timeout_sec: number
+  incident_threshold: number
 }
 
 export interface MonitorUpdate {

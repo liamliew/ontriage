@@ -1,10 +1,15 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueries } from '@tanstack/react-query'
 import { useAuth } from '@clerk/nextjs'
-import { createApiClient } from '@/lib/api'
+import { createApiClient, Monitor, Ping, PaginatedPings } from '@/lib/api'
 
-export function useMonitors() {
+export interface MonitorWithStatus extends Monitor {
+  latestPing: Ping | null
+}
+
+export function useMonitorsWithStatus() {
   const { getToken } = useAuth()
-  return useQuery({
+
+  const monitorsQuery = useQuery({
     queryKey: ['monitors'],
     queryFn: async () => {
       const token = await getToken()
@@ -12,6 +17,31 @@ export function useMonitors() {
       return createApiClient(token).getMonitors()
     },
   })
+
+  const monitors = monitorsQuery.data ?? []
+
+  const pingQueries = useQueries({
+    queries: monitors.map((m) => ({
+      queryKey: ['monitors', m.id, 'latest-ping'] as const,
+      queryFn: async (): Promise<Ping | null> => {
+        const token = await getToken()
+        if (!token) return null
+        const res = await createApiClient(token).getMonitorPings(m.id, 1, 1)
+        return res.data.length > 0 ? res.data[0] : null
+      },
+    })),
+  })
+
+  const enriched: MonitorWithStatus[] = monitors.map((m, i) => ({
+    ...m,
+    latestPing: pingQueries[i].data ?? null,
+  }))
+
+  return {
+    data: enriched,
+    isLoading: monitorsQuery.isLoading || (monitors.length > 0 && pingQueries.some((q) => q.isLoading)),
+    error: monitorsQuery.error,
+  }
 }
 
 export function useMonitor(id: string) {

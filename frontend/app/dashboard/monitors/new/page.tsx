@@ -59,21 +59,21 @@ export default function NewMonitorPage() {
   }
 
   function buildPayload(): MonitorCreate {
-    const payload: MonitorCreate = {
+    const filledHeaders = headers.filter((h) => h.key.trim())
+    const headersObj = filledHeaders.length > 0
+      ? Object.fromEntries(filledHeaders.map((h) => [h.key.trim(), h.value]))
+      : {}
+    return {
       name,
       url,
       method,
       interval_sec: Number(intervalSec),
+      expected_status: Number(expectedStatus),
+      timeout_sec: Number(timeoutSec),
+      incident_threshold: Number(incidentThreshold),
+      headers: headersObj,
+      keyword: keyword.trim(),
     }
-    const filledHeaders = headers.filter((h) => h.key.trim())
-    if (filledHeaders.length > 0) {
-      payload.headers = Object.fromEntries(filledHeaders.map((h) => [h.key.trim(), h.value]))
-    }
-    if (keyword.trim()) payload.keyword = keyword.trim()
-    if (expectedStatus !== '200') payload.expected_status = Number(expectedStatus)
-    if (timeoutSec !== '10') payload.timeout_sec = Number(timeoutSec)
-    if (incidentThreshold !== '2') payload.incident_threshold = Number(incidentThreshold)
-    return payload
   }
 
   async function handleSubmit(e: React.FormEvent) {
