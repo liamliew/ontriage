@@ -92,7 +92,9 @@ async function apiFetch<T>(
   }
 
   if (res.status === 204) return undefined as T
-  return res.json()
+  const ct = res.headers.get('content-type') ?? ''
+  if (ct.includes('application/json')) return res.json()
+  return undefined as T
 }
 
 export function createApiClient(token: string) {
