@@ -82,6 +82,14 @@ func main() {
 	apiRoutes.Get("/:id/pings", api.GetPings)
 	apiRoutes.Get("/:id/incidents", api.GetIncidents)
 
+	statusPageRoutes := app.Group("/status-pages", auth.Middleware())
+	statusPageRoutes.Get("/", api.GetStatusPages)
+	statusPageRoutes.Post("/", api.CreateStatusPage)
+	statusPageRoutes.Patch("/:id", api.UpdateStatusPage)
+	statusPageRoutes.Delete("/:id", api.DeleteStatusPage)
+	statusPageRoutes.Post("/:id/monitors", api.AddMonitorToStatusPage)
+	statusPageRoutes.Delete("/:id/monitors/:monitorId", api.RemoveMonitorFromStatusPage)
+
 	// Start Ping Worker (goroutine)
 	w := worker.NewWorker()
 	ctx, cancel := context.WithCancel(context.Background())

@@ -43,10 +43,33 @@ export interface Incident {
 
 export interface StatusPage {
   id: string
-  name: string
+  user_id: string
   slug: string
-  monitors: Monitor[]
-  incidents: Incident[]
+  title: string
+  is_public: boolean
+  created_at: string
+  monitors?: Monitor[]
+}
+
+export interface StatusPageCreate {
+  title: string
+  slug: string
+  is_public: boolean
+}
+
+export interface StatusPageUpdate {
+  title?: string
+  slug?: string
+  is_public?: boolean
+}
+
+export type StatusPageMonitor = Monitor & {
+  latest_ping: Ping | null
+}
+
+export interface PublicStatusPageResponse {
+  status_page: StatusPage
+  monitors: StatusPageMonitor[]
 }
 
 async function apiFetch<T>(
@@ -98,7 +121,43 @@ export function createApiClient(token: string) {
     getMonitorIncidents: (id: string) =>
       apiFetch<Incident[]>(`/monitors/${id}/incidents`, token),
 
-    getStatusPage: (slug: string) =>
-      apiFetch<StatusPage>(`/status/${slug}`, token),
+    getStatusPages: () =>
+      apiFetch<StatusPage[]>('/status-pages', token),
+
+    createStatusPage: (data: StatusPageCreate) =>
+      apiFetch<StatusPage>('/status-pages', token, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    updateStatusPage: (id: string, data: StatusPageUpdate) =>
+      apiFetch<StatusPage>(`/status-pages/${id}`, token, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+
+    deleteStatusPage: (id: string) =>
+      apiFetch<void>(`/status-pages/${id}`, token, { method: 'DELETE' }),
+
+    addMonitorToStatusPage: (statusPageId: string, monitorId: string) =>
+      apiFetch<void>(`/status-pages/${statusPageId}/monitors`, token, {
+        method: 'POST',
+        body: JSON.stringify({ monitor_id: monitorId }),
+      }),
+
+    removeMonitorFromStatusPage: (statusPageId: string, monitorId: string) =>
+      apiFetch<void>(`/status-pages/${statusPageId}/monitors/${monitorId}`, token, {
+        method: 'DELETE',
+      }),
   }
+}
+
+export async function getPublicStatusPage(slug: string): Promise<PublicStatusPageResponse> {
+  const res = await fetch(`${API_BASE}/status/${slug}`)
+  if (!res.ok) {
+    if (res.status === 404) throw new Error('not_found')
+    if (res.status === 403) throw new Error('private')
+    throw new Error(`API ${res.status}`)
+  }
+  return res.json()
 }
