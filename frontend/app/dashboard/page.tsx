@@ -1,12 +1,12 @@
 import { auth } from '@clerk/nextjs/server'
 import Link from 'next/link'
-import { CheckCircle, XCircle, Wifi, Plus } from 'lucide-react'
+import { Wifi, Plus } from 'lucide-react'
 import { createApiClient, Monitor } from '@/lib/api'
 
 function MonitorStatusIcon({ isUp }: { isUp: boolean | null }) {
-  if (isUp === true) return <CheckCircle size={14} className="text-emerald-400 flex-shrink-0" />
-  if (isUp === false) return <XCircle size={14} className="text-red-400 flex-shrink-0" />
-  return <Wifi size={14} className="text-neutral-600 flex-shrink-0" />
+  if (isUp === true) return <Wifi size={14} className="text-emerald-400 opacity-100 flex-shrink-0" />
+  if (isUp === false) return <Wifi size={14} className="text-red-400 opacity-100 flex-shrink-0" />
+  return <Wifi size={14} className="text-neutral-500 opacity-50 flex-shrink-0" />
 }
 
 function statusLabel(isUp: boolean | null) {
@@ -25,7 +25,19 @@ export default async function DashboardPage() {
   if (token) {
     try {
       const api = createApiClient(token)
-      monitors = await api.getMonitors()
+      const rawMonitors = await api.getMonitors()
+      
+      const pingsResults = await Promise.all(
+        rawMonitors.map((m) => api.getMonitorPings(m.id).catch(() => []))
+      )
+      
+      monitors = rawMonitors.map((m, i) => {
+        const pings = pingsResults[i]
+        return {
+          ...m,
+          latest_is_up: pings && pings.length > 0 ? pings[0].is_up : null
+        }
+      })
     } catch (e) {
       error = e instanceof Error ? e.message : 'Failed to load monitors'
     }
@@ -46,7 +58,7 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-3 gap-4 mb-10">
         <StatCard label="Monitors up" value={up} accent="text-emerald-400" />
         <StatCard label="Monitors down" value={down} accent="text-red-400" />
-        <StatCard label="No data yet" value={noData} accent="text-neutral-400" />
+        <StatCard label="No data" value={noData} accent="text-neutral-400" />
       </div>
 
       {/* Monitor list */}
