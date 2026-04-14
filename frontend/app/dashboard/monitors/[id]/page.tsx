@@ -1,6 +1,15 @@
 import { auth } from '@clerk/nextjs/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import {
+  ArrowLeft,
+  CheckCircle,
+  XCircle,
+  Clock,
+  Globe,
+  AlertTriangle,
+  BarChart2,
+} from 'lucide-react'
 import { createApiClient, Monitor, Ping, Incident } from '@/lib/api'
 
 function formatDate(iso: string) {
@@ -28,21 +37,15 @@ function formatInterval(sec: number) {
   return `${m} min`
 }
 
-function StatusDot({ status }: { status: Monitor['status'] }) {
-  const dot =
-    status === 'up' ? 'bg-emerald-500' :
-    status === 'down' ? 'bg-red-500' :
-    'bg-neutral-500'
-  return <span className={`h-2.5 w-2.5 rounded-full ${dot}`} />
-}
-
 function UpDownBadge({ isUp }: { isUp: boolean }) {
   return isUp ? (
-    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/15 text-emerald-400">
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/15 text-emerald-400">
+      <CheckCircle size={11} />
       Up
     </span>
   ) : (
-    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/15 text-red-400">
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/15 text-red-400">
+      <XCircle size={11} />
       Down
     </span>
   )
@@ -94,22 +97,33 @@ export default async function MonitorDetailPage({
       <div className="flex items-start justify-between mb-8">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <StatusDot status={monitor.status} />
+            {latestPing === null ? (
+              <span className="h-2.5 w-2.5 rounded-full bg-neutral-500" />
+            ) : latestPing.is_up ? (
+              <CheckCircle size={16} className="text-emerald-400" />
+            ) : (
+              <XCircle size={16} className="text-red-400" />
+            )}
             <h1 className="text-xl font-semibold text-white">{monitor.name}</h1>
           </div>
-          <p className="text-sm text-neutral-400">{monitor.url}</p>
+          <p className="flex items-center gap-1.5 text-sm text-neutral-400">
+            <Globe size={13} className="shrink-0" />
+            {monitor.url}
+          </p>
         </div>
         <Link
           href="/dashboard/monitors"
-          className="text-xs text-neutral-500 hover:text-white transition-colors"
+          className="flex items-center gap-1.5 text-xs text-neutral-500 hover:text-white transition-colors"
         >
-          ← All monitors
+          <ArrowLeft size={13} />
+          All monitors
         </Link>
       </div>
 
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-4 mb-10">
         <MiniStat
+          icon={latestPing?.is_up ? <CheckCircle size={14} /> : <XCircle size={14} />}
           label="Status"
           value={
             latestPing !== null
@@ -123,10 +137,15 @@ export default async function MonitorDetailPage({
           }
         />
         <MiniStat
+          icon={<Clock size={14} />}
           label="Interval"
           value={formatInterval(monitor.interval_sec)}
         />
-        <MiniStat label="Avg latency" value={avgLatency !== null ? `${avgLatency} ms` : '—'} />
+        <MiniStat
+          icon={<BarChart2 size={14} />}
+          label="Avg latency"
+          value={avgLatency !== null ? `${avgLatency} ms` : '—'}
+        />
       </div>
 
       {/* Ping timeline */}
@@ -155,7 +174,7 @@ export default async function MonitorDetailPage({
               {recentPings.map((ping, i) => (
                 <div
                   key={ping.id}
-                  className={`grid grid-cols-[1fr_90px_100px_1fr] gap-4 px-5 py-3 ${i > 0 ? 'border-t border-neutral-800' : ''}`}
+                  className={`grid grid-cols-[1fr_90px_100px_1fr] gap-4 px-5 py-3 items-center ${i > 0 ? 'border-t border-neutral-800' : ''}`}
                 >
                   <span className="text-xs text-neutral-400">{formatDate(ping.checked_at)}</span>
                   <span className="text-xs">
@@ -174,7 +193,10 @@ export default async function MonitorDetailPage({
 
       {/* Incidents */}
       <section>
-        <h2 className="text-sm font-medium text-white mb-3">Incidents</h2>
+        <h2 className="flex items-center gap-2 text-sm font-medium text-white mb-3">
+          <AlertTriangle size={14} className="text-red-400" />
+          Incidents
+        </h2>
         {incidents.length === 0 ? (
           <p className="text-sm text-neutral-500">No incidents recorded</p>
         ) : (
@@ -206,17 +228,22 @@ export default async function MonitorDetailPage({
 }
 
 function MiniStat({
+  icon,
   label,
   value,
   className = 'text-white',
 }: {
+  icon: React.ReactNode
   label: string
   value: string
   className?: string
 }) {
   return (
     <div className="border border-neutral-800 rounded-xl p-4 bg-neutral-900/40">
-      <p className="text-xs text-neutral-500 mb-1">{label}</p>
+      <p className="flex items-center gap-1.5 text-xs text-neutral-500 mb-1">
+        <span className={className}>{icon}</span>
+        {label}
+      </p>
       <p className={`text-sm font-medium ${className}`}>{value}</p>
     </div>
   )

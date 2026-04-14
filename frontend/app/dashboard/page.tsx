@@ -1,20 +1,18 @@
 import { auth } from '@clerk/nextjs/server'
 import Link from 'next/link'
+import { CheckCircle, XCircle, Wifi, Plus } from 'lucide-react'
 import { createApiClient, Monitor } from '@/lib/api'
 
-function statusDot(status: Monitor['status']) {
-  const map = {
-    up: 'bg-emerald-500',
-    down: 'bg-red-500',
-    paused: 'bg-neutral-500',
-    pending: 'bg-yellow-500',
-  }
-  return map[status] ?? 'bg-neutral-500'
+function MonitorStatusIcon({ isUp }: { isUp: boolean | null }) {
+  if (isUp === true) return <CheckCircle size={14} className="text-emerald-400 flex-shrink-0" />
+  if (isUp === false) return <XCircle size={14} className="text-red-400 flex-shrink-0" />
+  return <Wifi size={14} className="text-neutral-600 flex-shrink-0" />
 }
 
-function statusLabel(status: Monitor['status'] | undefined) {
-  if (!status) return 'Unknown'
-  return status.charAt(0).toUpperCase() + status.slice(1)
+function statusLabel(isUp: boolean | null) {
+  if (isUp === true) return { text: 'Up', className: 'text-emerald-400' }
+  if (isUp === false) return { text: 'Down', className: 'text-red-400' }
+  return { text: 'No data', className: 'text-neutral-500' }
 }
 
 export default async function DashboardPage() {
@@ -33,9 +31,9 @@ export default async function DashboardPage() {
     }
   }
 
-  const up = monitors.filter((m) => m.status === 'up').length
-  const down = monitors.filter((m) => m.status === 'down').length
-  const paused = monitors.filter((m) => m.status === 'paused').length
+  const up = monitors.filter((m) => m.latest_is_up === true).length
+  const down = monitors.filter((m) => m.latest_is_up === false).length
+  const noData = monitors.filter((m) => m.latest_is_up === null).length
 
   return (
     <div className="px-8 py-8 max-w-5xl">
@@ -48,7 +46,7 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-3 gap-4 mb-10">
         <StatCard label="Monitors up" value={up} accent="text-emerald-400" />
         <StatCard label="Monitors down" value={down} accent="text-red-400" />
-        <StatCard label="Paused" value={paused} accent="text-neutral-400" />
+        <StatCard label="No data yet" value={noData} accent="text-neutral-400" />
       </div>
 
       {/* Monitor list */}
@@ -56,9 +54,10 @@ export default async function DashboardPage() {
         <h2 className="text-sm font-medium text-white">Monitors</h2>
         <Link
           href="/dashboard/monitors/new"
-          className="text-xs bg-white text-black px-3 py-1.5 rounded-md font-medium hover:bg-neutral-200 transition-colors"
+          className="flex items-center gap-1.5 text-xs bg-white text-black px-3 py-1.5 rounded-md font-medium hover:bg-neutral-200 transition-colors"
         >
-          + Add monitor
+          <Plus size={13} />
+          Add monitor
         </Link>
       </div>
 
@@ -78,20 +77,23 @@ export default async function DashboardPage() {
         </div>
       ) : (
         <div className="border border-neutral-800 rounded-xl overflow-hidden">
-          {monitors.map((monitor, i) => (
-            <Link
-              key={monitor.id}
-              href={`/dashboard/monitors/${monitor.id}`}
-              className={`flex items-center gap-4 px-5 py-3.5 hover:bg-neutral-900 transition-colors ${
-                i > 0 ? 'border-t border-neutral-800' : ''
-              }`}
-            >
-              <span className={`h-2 w-2 rounded-full flex-shrink-0 ${statusDot(monitor.status)}`} />
-              <span className="flex-1 text-sm text-white truncate">{monitor.name}</span>
-              <span className="text-xs text-neutral-500 truncate max-w-xs">{monitor.url}</span>
-              <span className="text-xs text-neutral-500 ml-auto">{statusLabel(monitor.status)}</span>
-            </Link>
-          ))}
+          {monitors.map((monitor, i) => {
+            const { text, className } = statusLabel(monitor.latest_is_up)
+            return (
+              <Link
+                key={monitor.id}
+                href={`/dashboard/monitors/${monitor.id}`}
+                className={`flex items-center gap-4 px-5 py-3.5 hover:bg-neutral-900 transition-colors ${
+                  i > 0 ? 'border-t border-neutral-800' : ''
+                }`}
+              >
+                <MonitorStatusIcon isUp={monitor.latest_is_up} />
+                <span className="flex-1 text-sm text-white truncate">{monitor.name}</span>
+                <span className="text-xs text-neutral-500 truncate max-w-xs">{monitor.url}</span>
+                <span className={`text-xs ml-auto ${className}`}>{text}</span>
+              </Link>
+            )
+          })}
         </div>
       )}
     </div>

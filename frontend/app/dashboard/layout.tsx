@@ -3,11 +3,12 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { UserButton } from '@clerk/nextjs'
+import { LayoutDashboard, Activity, Globe, Settings } from 'lucide-react'
 
 const navItems = [
-  { href: '/dashboard', label: 'Overview' },
-  { href: '/dashboard/monitors', label: 'Monitors' },
-  { href: '/dashboard/status-pages', label: 'Status Pages' },
+  { href: '/dashboard', label: 'Overview', Icon: LayoutDashboard },
+  { href: '/dashboard/monitors', label: 'Monitors', Icon: Activity },
+  { href: '/dashboard/status-pages', label: 'Status Pages', Icon: Globe },
 ]
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -24,28 +25,29 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
 
         <nav className="flex-1 px-3 py-4 flex flex-col gap-0.5">
-          {navItems.map((item) => {
+          {navItems.map(({ href, label, Icon }) => {
             const active =
-              item.href === '/dashboard'
+              href === '/dashboard'
                 ? pathname === '/dashboard'
-                : pathname.startsWith(item.href)
+                : pathname.startsWith(href)
             return (
               <Link
-                key={item.href}
-                href={item.href}
-                className={`text-sm px-3 py-2 rounded-md transition-colors ${
+                key={href}
+                href={href}
+                className={`flex items-center gap-2.5 text-sm px-3 py-2 rounded-md transition-colors ${
                   active
                     ? 'bg-neutral-800 text-white'
                     : 'text-neutral-400 hover:text-white hover:bg-neutral-800/60'
                 }`}
               >
-                {item.label}
+                <Icon size={15} />
+                {label}
               </Link>
             )
           })}
         </nav>
 
-        <div className="px-5 py-4 border-t border-neutral-800">
+        <div className="px-5 py-4 border-t border-neutral-800 flex items-center gap-2.5">
           <UserButton
             appearance={{
               elements: {
@@ -53,6 +55,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               },
             }}
           />
+          <span className="text-xs text-neutral-500 flex items-center gap-1.5">
+            <Settings size={12} />
+            Settings
+          </span>
         </div>
       </aside>
 

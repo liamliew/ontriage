@@ -1,16 +1,17 @@
 import { notFound } from 'next/navigation'
+import { CheckCircle, XCircle } from 'lucide-react'
 import { createApiClient, StatusPage, Monitor } from '@/lib/api'
 
-function statusColor(status: Monitor['status']) {
-  if (status === 'up') return 'text-emerald-400'
-  if (status === 'down') return 'text-red-400'
-  return 'text-neutral-400'
+function StatusDot({ isUp }: { isUp: boolean | null }) {
+  if (isUp === true) return <CheckCircle size={14} className="text-emerald-400 shrink-0" />
+  if (isUp === false) return <XCircle size={14} className="text-red-400 shrink-0" />
+  return <span className="h-2 w-2 rounded-full bg-neutral-500 shrink-0" />
 }
 
-function statusDot(status: Monitor['status']) {
-  if (status === 'up') return 'bg-emerald-500'
-  if (status === 'down') return 'bg-red-500'
-  return 'bg-neutral-500'
+function statusLabel(isUp: boolean | null) {
+  if (isUp === true) return { text: 'Operational', className: 'text-emerald-400' }
+  if (isUp === false) return { text: 'Down', className: 'text-red-400' }
+  return { text: 'No data', className: 'text-neutral-500' }
 }
 
 function formatDate(iso: string) {
@@ -30,7 +31,6 @@ export default async function PublicStatusPage({
 }) {
   const { slug } = await params
 
-  // Public status pages use an unauthenticated API call
   let statusPage: StatusPage
 
   try {
@@ -40,8 +40,8 @@ export default async function PublicStatusPage({
     notFound()
   }
 
-  const allUp = statusPage.monitors.every((m) => m.status === 'up')
-  const anyDown = statusPage.monitors.some((m) => m.status === 'down')
+  const allUp = statusPage.monitors.every((m) => m.latest_is_up === true)
+  const anyDown = statusPage.monitors.some((m) => m.latest_is_up === false)
   const activeIncidents = statusPage.incidents.filter((i) => !i.resolved_at)
 
   return (
@@ -68,7 +68,7 @@ export default async function PublicStatusPage({
               ? 'Some services are experiencing issues'
               : allUp
               ? 'All systems operational'
-              : 'Some monitors are paused'}
+              : 'Waiting for first checks'}
           </p>
         </div>
 
@@ -79,20 +79,21 @@ export default async function PublicStatusPage({
               Services
             </h2>
             <div className="border border-neutral-800 rounded-xl overflow-hidden">
-              {statusPage.monitors.map((monitor, i) => (
-                <div
-                  key={monitor.id}
-                  className={`flex items-center gap-3 px-5 py-3.5 ${
-                    i > 0 ? 'border-t border-neutral-800' : ''
-                  }`}
-                >
-                  <span className={`h-2 w-2 rounded-full flex-shrink-0 ${statusDot(monitor.status)}`} />
-                  <span className="flex-1 text-sm text-white">{monitor.name}</span>
-                  <span className={`text-xs font-medium capitalize ${statusColor(monitor.status)}`}>
-                    {monitor.status}
-                  </span>
-                </div>
-              ))}
+              {statusPage.monitors.map((monitor, i) => {
+                const { text, className } = statusLabel(monitor.latest_is_up)
+                return (
+                  <div
+                    key={monitor.id}
+                    className={`flex items-center gap-3 px-5 py-3.5 ${
+                      i > 0 ? 'border-t border-neutral-800' : ''
+                    }`}
+                  >
+                    <StatusDot isUp={monitor.latest_is_up} />
+                    <span className="flex-1 text-sm text-white">{monitor.name}</span>
+                    <span className={`text-xs font-medium ${className}`}>{text}</span>
+                  </div>
+                )
+              })}
             </div>
           </section>
         )}

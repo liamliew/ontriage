@@ -1,20 +1,34 @@
 import { auth } from '@clerk/nextjs/server'
 import Link from 'next/link'
+import { CheckCircle, XCircle, Wifi, Plus } from 'lucide-react'
 import { createApiClient, Monitor } from '@/lib/api'
-
-function statusDot(status: Monitor['status']) {
-  const map = {
-    up: 'bg-emerald-500',
-    down: 'bg-red-500',
-    paused: 'bg-neutral-500',
-    pending: 'bg-yellow-500',
-  }
-  return map[status] ?? 'bg-neutral-500'
-}
 
 function formatInterval(seconds: number) {
   if (seconds < 60) return `${seconds}s`
-  return `${Math.round(seconds / 60)}m`
+  return `${Math.round(seconds / 60)} min`
+}
+
+function StatusCell({ isUp }: { isUp: boolean | null }) {
+  if (isUp === true)
+    return (
+      <span className="flex items-center gap-1.5 text-emerald-400">
+        <CheckCircle size={13} />
+        <span className="text-xs">Up</span>
+      </span>
+    )
+  if (isUp === false)
+    return (
+      <span className="flex items-center gap-1.5 text-red-400">
+        <XCircle size={13} />
+        <span className="text-xs">Down</span>
+      </span>
+    )
+  return (
+    <span className="flex items-center gap-1.5 text-neutral-500">
+      <Wifi size={13} />
+      <span className="text-xs">No data</span>
+    </span>
+  )
 }
 
 export default async function MonitorsPage() {
@@ -42,9 +56,10 @@ export default async function MonitorsPage() {
         </div>
         <Link
           href="/dashboard/monitors/new"
-          className="text-sm bg-white text-black px-3 py-1.5 rounded-md font-medium hover:bg-neutral-200 transition-colors"
+          className="flex items-center gap-1.5 text-sm bg-white text-black px-3 py-1.5 rounded-md font-medium hover:bg-neutral-200 transition-colors"
         >
-          + Add monitor
+          <Plus size={14} />
+          Add monitor
         </Link>
       </div>
 
@@ -60,10 +75,9 @@ export default async function MonitorsPage() {
       ) : (
         <div className="border border-neutral-800 rounded-xl overflow-hidden">
           {/* Table header */}
-          <div className="grid grid-cols-[1fr_2fr_80px_80px_100px] gap-4 px-5 py-2.5 border-b border-neutral-800 bg-neutral-900/60">
+          <div className="grid grid-cols-[1fr_2fr_80px_100px] gap-4 px-5 py-2.5 border-b border-neutral-800 bg-neutral-900/60">
             <span className="text-xs text-neutral-500 font-medium">Name</span>
             <span className="text-xs text-neutral-500 font-medium">URL</span>
-            <span className="text-xs text-neutral-500 font-medium">Type</span>
             <span className="text-xs text-neutral-500 font-medium">Interval</span>
             <span className="text-xs text-neutral-500 font-medium">Status</span>
           </div>
@@ -72,18 +86,14 @@ export default async function MonitorsPage() {
             <Link
               key={monitor.id}
               href={`/dashboard/monitors/${monitor.id}`}
-              className={`grid grid-cols-[1fr_2fr_80px_80px_100px] gap-4 px-5 py-3.5 hover:bg-neutral-900 transition-colors items-center ${
+              className={`grid grid-cols-[1fr_2fr_80px_100px] gap-4 px-5 py-3.5 hover:bg-neutral-900 transition-colors items-center ${
                 i > 0 ? 'border-t border-neutral-800' : ''
               }`}
             >
               <span className="text-sm text-white truncate">{monitor.name}</span>
               <span className="text-sm text-neutral-400 truncate">{monitor.url}</span>
-              <span className="text-xs text-neutral-500 uppercase tracking-wide">{monitor.type}</span>
               <span className="text-xs text-neutral-500">{formatInterval(monitor.interval_sec)}</span>
-              <span className="flex items-center gap-2">
-                <span className={`h-2 w-2 rounded-full flex-shrink-0 ${statusDot(monitor.status)}`} />
-                <span className="text-xs text-neutral-400 capitalize">{monitor.status}</span>
-              </span>
+              <StatusCell isUp={monitor.latest_is_up} />
             </Link>
           ))}
         </div>
