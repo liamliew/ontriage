@@ -3,18 +3,6 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { createApiClient, Monitor, Ping, Incident } from '@/lib/api'
 
-function statusColor(status: Monitor['status'] | Ping['status']) {
-  if (status === 'up') return 'text-emerald-400'
-  if (status === 'down') return 'text-red-400'
-  return 'text-neutral-400'
-}
-
-function statusDot(status: Monitor['status'] | Ping['status']) {
-  if (status === 'up') return 'bg-emerald-500'
-  if (status === 'down') return 'bg-red-500'
-  return 'bg-neutral-500'
-}
-
 function formatDate(iso: string) {
   return new Date(iso).toLocaleString('en-GB', {
     day: '2-digit',
@@ -32,6 +20,32 @@ function formatDuration(ms: number | null) {
   const m = Math.round(s / 60)
   if (m < 60) return `${m}m`
   return `${Math.round(m / 60)}h ${m % 60}m`
+}
+
+function formatInterval(sec: number) {
+  if (sec < 60) return `${sec}s`
+  const m = sec / 60
+  return `${m} min`
+}
+
+function StatusDot({ status }: { status: Monitor['status'] }) {
+  const dot =
+    status === 'up' ? 'bg-emerald-500' :
+    status === 'down' ? 'bg-red-500' :
+    'bg-neutral-500'
+  return <span className={`h-2.5 w-2.5 rounded-full ${dot}`} />
+}
+
+function UpDownBadge({ isUp }: { isUp: boolean }) {
+  return isUp ? (
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/15 text-emerald-400">
+      Up
+    </span>
+  ) : (
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/15 text-red-400">
+      Down
+    </span>
+  )
 }
 
 export default async function MonitorDetailPage({
@@ -72,13 +86,15 @@ export default async function MonitorDetailPage({
       ? Math.round(pings.reduce((a, p) => a + p.latency_ms, 0) / pings.length)
       : null
 
+  const latestPing = recentPings[0] ?? null
+
   return (
     <div className="px-8 py-8 max-w-4xl">
       {/* Header */}
       <div className="flex items-start justify-between mb-8">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className={`h-2.5 w-2.5 rounded-full ${statusDot(monitor.status)}`} />
+            <StatusDot status={monitor.status} />
             <h1 className="text-xl font-semibold text-white">{monitor.name}</h1>
           </div>
           <p className="text-sm text-neutral-400">{monitor.url}</p>
@@ -92,12 +108,23 @@ export default async function MonitorDetailPage({
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-4 gap-4 mb-10">
-        <MiniStat label="Status" value={monitor.status} className={statusColor(monitor.status)} />
-        <MiniStat label="Type" value={monitor.type?.toUpperCase() ?? '—'} />
+      <div className="grid grid-cols-3 gap-4 mb-10">
+        <MiniStat
+          label="Status"
+          value={
+            latestPing !== null
+              ? latestPing.is_up ? 'Up' : 'Down'
+              : '—'
+          }
+          className={
+            latestPing !== null
+              ? latestPing.is_up ? 'text-emerald-400' : 'text-red-400'
+              : 'text-neutral-400'
+          }
+        />
         <MiniStat
           label="Interval"
-          value={`${monitor.interval_sec >= 60 ? monitor.interval_sec / 60 + 'm' : monitor.interval_sec + 's'}`}
+          value={formatInterval(monitor.interval_sec)}
         />
         <MiniStat label="Avg latency" value={avgLatency !== null ? `${avgLatency} ms` : '—'} />
       </div>
@@ -113,25 +140,29 @@ export default async function MonitorDetailPage({
               {recentPings.map((p) => (
                 <div
                   key={p.id}
-                  title={`${p.status} — ${p.latency_ms}ms`}
-                  className={`flex-1 h-8 rounded-sm ${p.status === 'up' ? 'bg-emerald-500' : 'bg-red-500'}`}
+                  title={`${p.is_up ? 'Up' : 'Down'} — ${p.latency_ms}ms`}
+                  className={`flex-1 h-8 rounded-sm ${p.is_up ? 'bg-emerald-500' : 'bg-red-500'}`}
                 />
               ))}
             </div>
             <div className="border border-neutral-800 rounded-xl overflow-hidden">
-              <div className="grid grid-cols-[1fr_80px_1fr] gap-4 px-5 py-2.5 border-b border-neutral-800 bg-neutral-900/60">
+              <div className="grid grid-cols-[1fr_90px_100px_1fr] gap-4 px-5 py-2.5 border-b border-neutral-800 bg-neutral-900/60">
                 <span className="text-xs text-neutral-500 font-medium">Time</span>
                 <span className="text-xs text-neutral-500 font-medium">Status</span>
+                <span className="text-xs text-neutral-500 font-medium">Status Code</span>
                 <span className="text-xs text-neutral-500 font-medium">Latency</span>
               </div>
               {recentPings.map((ping, i) => (
                 <div
                   key={ping.id}
-                  className={`grid grid-cols-[1fr_80px_1fr] gap-4 px-5 py-3 ${i > 0 ? 'border-t border-neutral-800' : ''}`}
+                  className={`grid grid-cols-[1fr_90px_100px_1fr] gap-4 px-5 py-3 ${i > 0 ? 'border-t border-neutral-800' : ''}`}
                 >
                   <span className="text-xs text-neutral-400">{formatDate(ping.checked_at)}</span>
-                  <span className={`text-xs font-medium capitalize ${statusColor(ping.status)}`}>
-                    {ping.status}
+                  <span className="text-xs">
+                    <UpDownBadge isUp={ping.is_up} />
+                  </span>
+                  <span className="text-xs text-neutral-400">
+                    {ping.status_code ?? '—'}
                   </span>
                   <span className="text-xs text-neutral-400">{ping.latency_ms} ms</span>
                 </div>
@@ -186,7 +217,7 @@ function MiniStat({
   return (
     <div className="border border-neutral-800 rounded-xl p-4 bg-neutral-900/40">
       <p className="text-xs text-neutral-500 mb-1">{label}</p>
-      <p className={`text-sm font-medium capitalize ${className}`}>{value}</p>
+      <p className={`text-sm font-medium ${className}`}>{value}</p>
     </div>
   )
 }

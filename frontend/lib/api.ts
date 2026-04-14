@@ -29,7 +29,8 @@ export interface MonitorUpdate {
 export interface Ping {
   id: string
   monitor_id: string
-  status: 'up' | 'down'
+  is_up: boolean
+  status_code: number | null
   latency_ms: number
   checked_at: string
   error?: string
