@@ -12,7 +12,8 @@ function statusDot(status: Monitor['status']) {
   return map[status] ?? 'bg-neutral-500'
 }
 
-function statusLabel(status: Monitor['status']) {
+function statusLabel(status: Monitor['status'] | undefined) {
+  if (!status) return 'Unknown'
   return status.charAt(0).toUpperCase() + status.slice(1)
 }
 

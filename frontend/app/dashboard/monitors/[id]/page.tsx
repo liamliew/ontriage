@@ -94,7 +94,7 @@ export default async function MonitorDetailPage({
       {/* Stats row */}
       <div className="grid grid-cols-4 gap-4 mb-10">
         <MiniStat label="Status" value={monitor.status} className={statusColor(monitor.status)} />
-        <MiniStat label="Type" value={monitor.type.toUpperCase()} />
+        <MiniStat label="Type" value={monitor.type?.toUpperCase() ?? '—'} />
         <MiniStat
           label="Interval"
           value={`${monitor.interval_sec >= 60 ? monitor.interval_sec / 60 + 'm' : monitor.interval_sec + 's'}`}
