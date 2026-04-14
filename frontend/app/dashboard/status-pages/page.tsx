@@ -173,7 +173,7 @@ export default function StatusPagesPage() {
                       href={`/status/${page.slug}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                      className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors font-mono"
                     >
                       <Link2 size={12} className="shrink-0" />
                       {page.slug}

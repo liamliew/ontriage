@@ -97,7 +97,7 @@ export default async function PublicStatusPage({
                     <StatusIndicator isUp={ping?.is_up ?? null} />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm truncate">{monitor.name}</p>
-                      <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                      <p className="text-xs text-muted-foreground truncate flex items-center gap-1 font-mono">
                         <Globe size={10} className="shrink-0" />
                         {monitor.url}
                       </p>
@@ -105,7 +105,7 @@ export default async function PublicStatusPage({
                     <div className="text-right shrink-0">
                       {ping ? (
                         <>
-                          <p className="text-xs text-muted-foreground">{ping.latency_ms} ms</p>
+                          <p className="text-xs text-muted-foreground font-mono">{ping.latency_ms} ms</p>
                           <p className="text-xs text-muted-foreground/60 flex items-center gap-1 justify-end">
                             <Clock size={9} />
                             {timeAgo(ping.checked_at)}

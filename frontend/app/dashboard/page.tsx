@@ -10,13 +10,12 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
-import { createApiClient, Monitor, UptimeResponse } from '@/lib/api'
-import { useMonitors, useMonitorUptime } from '@/hooks/use-api'
+import { createApiClient, UptimeResponse } from '@/lib/api'
+import { useMonitorsWithStatus, type MonitorWithStatus } from '@/hooks/use-api'
 
-function MonitorRow({ monitor }: { monitor: Monitor }) {
-  const { data: uptime } = useMonitorUptime(monitor.id)
-  const uptimePct = uptime?.uptime_percentage ?? null
-  const isUp = uptime ? (uptime.down_checks > 0 ? false : uptime.up_checks > 0 ? true : null) : monitor.latest_is_up
+function MonitorRow({ monitor }: { monitor: MonitorWithStatus }) {
+  const isUp = monitor.latestPing?.is_up ?? null
+  const uptimePct = useMonitorUptimeValue(monitor.id)
 
   return (
     <Link
@@ -33,10 +32,10 @@ function MonitorRow({ monitor }: { monitor: Monitor }) {
         )}
       />
       <span className="flex-1 text-sm truncate">{monitor.name}</span>
-      <span className="text-xs text-muted-foreground truncate max-w-xs">{monitor.url}</span>
+      <span className="text-xs text-muted-foreground font-mono truncate max-w-xs">{monitor.url}</span>
       <span
         className={cn(
-          'text-xs tabular-nums',
+          'text-xs tabular-nums font-mono',
           uptimePct !== null && uptimePct >= 99 && 'text-emerald-500',
           uptimePct !== null && uptimePct >= 95 && uptimePct < 99 && 'text-yellow-500',
           uptimePct !== null && uptimePct < 95 && 'text-red-500',
@@ -59,8 +58,23 @@ function MonitorRow({ monitor }: { monitor: Monitor }) {
   )
 }
 
+function useMonitorUptimeValue(id: string): number | null {
+  const { getToken } = useAuth()
+  const results = useQueries({
+    queries: [{
+      queryKey: ['monitors', id, 'uptime', { days: 30 }] as const,
+      queryFn: async (): Promise<UptimeResponse | null> => {
+        const token = await getToken()
+        if (!token) return null
+        return createApiClient(token).getMonitorUptime(id)
+      },
+    }],
+  })
+  return results[0].data?.uptime_percentage ?? null
+}
+
 export default function DashboardPage() {
-  const { data: monitors, isLoading, error } = useMonitors()
+  const { data: monitors, isLoading, error } = useMonitorsWithStatus()
   const { getToken } = useAuth()
 
   const monitorIds = monitors?.map((m) => m.id) ?? []
@@ -83,9 +97,9 @@ export default function DashboardPage() {
     ? validUptimes.reduce((a, b) => a + b, 0) / validUptimes.length
     : null
 
-  const up = monitors?.filter((m) => m.latest_is_up === true).length ?? 0
-  const down = monitors?.filter((m) => m.latest_is_up === false).length ?? 0
-  const noData = monitors?.filter((m) => m.latest_is_up === null).length ?? 0
+  const up = monitors?.filter((m) => m.latestPing?.is_up === true).length ?? 0
+  const down = monitors?.filter((m) => m.latestPing?.is_up === false).length ?? 0
+  const noData = monitors?.filter((m) => m.latestPing === null).length ?? 0
 
   if (isLoading) {
     return (
@@ -136,7 +150,7 @@ export default function DashboardPage() {
               </p>
               <p
                 className={cn(
-                  'text-3xl font-semibold tabular-nums',
+                  'text-3xl font-semibold tabular-nums font-mono',
                   avgUptime !== null && avgUptime >= 99 && 'text-emerald-500',
                   avgUptime !== null && avgUptime >= 95 && avgUptime < 99 && 'text-yellow-500',
                   avgUptime !== null && avgUptime < 95 && 'text-red-500',
@@ -191,7 +205,7 @@ function StatCard({ label, value, accent }: { label: string; value: number; acce
       <Card>
         <CardContent className="p-5">
           <p className="text-xs text-muted-foreground mb-1">{label}</p>
-          <p className={cn('text-3xl font-semibold tabular-nums', accent)}>{value}</p>
+          <p className={cn('text-3xl font-semibold tabular-nums font-mono', accent)}>{value}</p>
         </CardContent>
       </Card>
     </motion.div>

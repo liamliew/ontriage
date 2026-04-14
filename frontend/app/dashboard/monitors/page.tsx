@@ -36,8 +36,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
-import { createApiClient, Monitor } from '@/lib/api'
-import { useMonitors, useMonitorUptime } from '@/hooks/use-api'
+import { createApiClient } from '@/lib/api'
+import { useMonitorsWithStatus, useMonitorUptime, type MonitorWithStatus } from '@/hooks/use-api'
 import { toast } from 'sonner'
 
 function formatInterval(seconds: number) {
@@ -63,7 +63,7 @@ function UptimeCell({ monitorId }: { monitorId: string }) {
   )
 }
 
-function ActionsCell({ monitor }: { monitor: Monitor }) {
+function ActionsCell({ monitor }: { monitor: MonitorWithStatus }) {
   const router = useRouter()
   const { getToken } = useAuth()
 
@@ -101,12 +101,13 @@ function ActionsCell({ monitor }: { monitor: Monitor }) {
   )
 }
 
-const columns: ColumnDef<Monitor>[] = [
+const columns: ColumnDef<MonitorWithStatus>[] = [
   {
-    accessorKey: 'latest_is_up',
+    id: 'status',
     header: 'Status',
     cell: ({ row }) => {
-      const isUp = row.original.latest_is_up
+      const ping = row.original.latestPing
+      const isUp = ping ? ping.is_up : null
       return (
         <Badge
           variant={isUp === true ? 'default' : isUp === false ? 'destructive' : 'secondary'}
@@ -135,7 +136,7 @@ const columns: ColumnDef<Monitor>[] = [
   {
     accessorKey: 'url',
     header: 'URL',
-    cell: ({ row }) => <span className="text-sm text-muted-foreground truncate max-w-xs">{row.getValue('url')}</span>,
+    cell: ({ row }) => <span className="text-sm text-muted-foreground font-mono truncate max-w-xs">{row.getValue('url')}</span>,
     enableSorting: false,
   },
   {
@@ -151,7 +152,7 @@ const columns: ColumnDef<Monitor>[] = [
     enableSorting: false,
   },
   {
-    accessorKey: 'last_checked_at',
+    id: 'last_checked',
     header: ({ column }) => (
       <Button variant="ghost" size="sm" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
         Last checked
@@ -159,11 +160,11 @@ const columns: ColumnDef<Monitor>[] = [
       </Button>
     ),
     cell: ({ row }) => {
-      const val = row.getValue('last_checked_at') as string | null
-      if (!val) return <span className="text-xs text-muted-foreground">—</span>
+      const ping = row.original.latestPing
+      if (!ping) return <span className="text-xs text-muted-foreground">—</span>
       return (
         <span className="text-xs text-muted-foreground">
-          {formatDistanceToNow(new Date(val), { addSuffix: true })}
+          {formatDistanceToNow(new Date(ping.checked_at), { addSuffix: true })}
         </span>
       )
     },
@@ -176,7 +177,7 @@ const columns: ColumnDef<Monitor>[] = [
 ]
 
 export default function MonitorsPage() {
-  const { data: monitors, isLoading, error } = useMonitors()
+  const { data: monitors, isLoading, error } = useMonitorsWithStatus()
   const [sorting, setSorting] = useState<SortingState>([])
   const [filter, setFilter] = useState('')
 

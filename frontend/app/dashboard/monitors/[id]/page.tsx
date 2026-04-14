@@ -128,9 +128,9 @@ function MonitorDetail({ id }: { id: string }) {
           </div>
           <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
             <Globe size={13} className="shrink-0" />
-            {monitor.url}
+            <span className="font-mono">{monitor.url}</span>
           </p>
-          <p className="text-xs text-muted-foreground/60 mt-1">{monitor.method} &middot; every {formatInterval(monitor.interval_sec)}</p>
+          <span className="text-xs font-mono text-muted-foreground/60 mt-1">{monitor.method} &middot; every {formatInterval(monitor.interval_sec)}</span>
         </div>
         <Link href="/dashboard/monitors">
           <Button variant="ghost" size="sm">
@@ -260,9 +260,9 @@ function MonitorDetail({ id }: { id: string }) {
                           {ping.is_up ? 'Up' : 'Down'}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{ping.status_code}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground font-mono">{ping.status_code}</TableCell>
                       <TableCell>
-                        <span className="grid grid-cols-3 gap-2 text-xs">
+                        <span className="grid grid-cols-3 gap-2 text-xs font-mono">
                           <span className="text-muted-foreground">{ping.dns_ms}ms</span>
                           <span className="text-muted-foreground">{ping.tls_ms}ms</span>
                           <span className="font-medium">{ping.latency_ms}ms</span>
@@ -355,10 +355,10 @@ function MonitorDetail({ id }: { id: string }) {
         <Card>
           <CardContent className="p-5">
             <div className="grid grid-cols-2 gap-4">
-              <ConfigRow label="Expected status" value={String(monitor.expected_status)} />
-              <ConfigRow label="Timeout" value={`${monitor.timeout_sec}s`} />
+              <ConfigRow label="Expected status" value={String(monitor.expected_status)} mono />
+              <ConfigRow label="Timeout" value={`${monitor.timeout_sec}s`} mono />
               <ConfigRow label="Keyword" value={monitor.keyword || '—'} />
-              <ConfigRow label="Incident threshold" value={`${monitor.incident_threshold} failures`} />
+              <ConfigRow label="Incident threshold" value={`${monitor.incident_threshold} failures`} mono />
             </div>
             {monitor.headers && Object.keys(monitor.headers).length > 0 && (
               <>
@@ -380,11 +380,11 @@ function MonitorDetail({ id }: { id: string }) {
   )
 }
 
-function ConfigRow({ label, value }: { label: string; value: string }) {
+function ConfigRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div>
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="text-sm">{value}</p>
+      <p className={cn('text-sm', mono && 'font-mono')}>{value}</p>
     </div>
   )
 }
@@ -398,7 +398,7 @@ function MiniStat({ icon, label, value, className = '' }: { icon: React.ReactNod
             <span className={className}>{icon}</span>
             {label}
           </p>
-          <p className={cn('text-sm font-medium tabular-nums', className)}>{value}</p>
+          <p className={cn('text-sm font-medium tabular-nums font-mono', className)}>{value}</p>
         </CardContent>
       </Card>
     </motion.div>
