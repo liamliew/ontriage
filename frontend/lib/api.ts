@@ -151,6 +151,9 @@ export function createApiClient(token: string) {
       apiFetch<void>(`/status-pages/${statusPageId}/monitors/${monitorId}`, token, {
         method: 'DELETE',
       }),
+
+    getStatusPageBySlug: (slug: string) =>
+      apiFetch<PublicStatusPageResponse>(`/status/${slug}`, token),
   }
 }
 

@@ -86,14 +86,14 @@ export default function StatusPagesPage() {
     page: StatusPage,
     data: { title: string; slug: string; is_public: boolean },
     selectedIds: Set<string>,
+    currentMonitorIds: Set<string>,
   ) {
     const token = await getToken()
     if (!token) return
     const api = createApiClient(token)
 
-    const originalIds = new Set((page.monitors ?? []).map((m) => m.id))
-    const added = [...selectedIds].filter((id) => !originalIds.has(id))
-    const removed = [...originalIds].filter((id) => !selectedIds.has(id))
+    const added = [...selectedIds].filter((id) => !currentMonitorIds.has(id))
+    const removed = [...currentMonitorIds].filter((id) => !selectedIds.has(id))
 
     await Promise.all([
       api.updateStatusPage(page.id, data),
@@ -230,7 +230,7 @@ export default function StatusPagesPage() {
           page={editingPage}
           monitors={monitors}
           onClose={() => setEditingPage(null)}
-          onSubmit={(data, selectedIds) => handleEdit(editingPage, data, selectedIds)}
+          onSubmit={(data, selectedIds, currentMonitorIds) => handleEdit(editingPage, data, selectedIds, currentMonitorIds)}
         />
       )}
 
@@ -369,16 +369,37 @@ function EditModal({
   onSubmit: (
     data: { title: string; slug: string; is_public: boolean },
     selectedIds: Set<string>,
+    currentMonitorIds: Set<string>,
   ) => Promise<void>
 }) {
+  const { getToken } = useAuth()
   const [title, setTitle] = useState(page.title)
   const [slug, setSlug] = useState(page.slug)
   const [isPublic, setIsPublic] = useState(page.is_public)
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(
-    new Set((page.monitors ?? []).map((m) => m.id)),
-  )
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [currentMonitorIds, setCurrentMonitorIds] = useState<Set<string>>(new Set())
+  const [fetchingMonitors, setFetchingMonitors] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    async function fetchCurrentMonitors() {
+      try {
+        const token = await getToken()
+        if (!token) return
+        const api = createApiClient(token)
+        const data = await api.getStatusPageBySlug(page.slug)
+        const ids = new Set(data.monitors.map((m) => m.id))
+        setCurrentMonitorIds(ids)
+        setSelectedIds(new Set(ids))
+      } catch {
+        setSelectedIds(new Set((page.monitors ?? []).map((m) => m.id)))
+      } finally {
+        setFetchingMonitors(false)
+      }
+    }
+    fetchCurrentMonitors()
+  }, [getToken, page.slug, page.monitors])
 
   function toggleMonitor(id: string) {
     setSelectedIds((prev) => {
@@ -398,7 +419,7 @@ function EditModal({
     setError(null)
     setSaving(true)
     try {
-      await onSubmit({ title, slug, is_public: isPublic }, selectedIds)
+      await onSubmit({ title, slug, is_public: isPublic }, selectedIds, currentMonitorIds)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to update')
       setSaving(false)
@@ -453,7 +474,13 @@ function EditModal({
 
         <div className="mt-6 pt-5 border-t border-neutral-800">
           <h3 className="text-sm font-medium text-white mb-3">Monitors</h3>
-          {monitors.length === 0 ? (
+          {fetchingMonitors ? (
+            <div className="space-y-2">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="h-8 bg-neutral-800/50 rounded animate-pulse" />
+              ))}
+            </div>
+          ) : monitors.length === 0 ? (
             <p className="text-sm text-neutral-500">No monitors available</p>
           ) : (
             <div className="max-h-48 overflow-y-auto space-y-0.5">
