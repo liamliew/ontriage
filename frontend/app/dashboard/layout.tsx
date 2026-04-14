@@ -3,7 +3,9 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { UserButton } from '@clerk/nextjs'
-import { LayoutDashboard, Activity, Globe, Settings } from 'lucide-react'
+import { LayoutDashboard, Activity, Globe } from 'lucide-react'
+import { ThemeToggle } from '@/components/theme-toggle'
+import { cn } from '@/lib/utils'
 
 const navItems = [
   { href: '/dashboard', label: 'Overview', Icon: LayoutDashboard },
@@ -16,12 +18,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex min-h-screen">
-      {/* Sidebar */}
-      <aside className="w-56 border-r border-neutral-800 bg-neutral-900 flex flex-col">
-        <div className="h-14 flex items-center px-5 border-b border-neutral-800">
-          <Link href="/dashboard" className="font-semibold text-white tracking-tight text-sm">
+      <aside className="w-56 border-r border-border bg-sidebar flex flex-col">
+        <div className="h-14 flex items-center justify-between px-5 border-b border-border">
+          <Link href="/dashboard" className="font-semibold text-foreground tracking-tight text-sm">
             OnTriage
           </Link>
+          <ThemeToggle />
         </div>
 
         <nav className="flex-1 px-3 py-4 flex flex-col gap-0.5">
@@ -34,11 +36,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <Link
                 key={href}
                 href={href}
-                className={`flex items-center gap-2.5 text-sm px-3 py-2 rounded-md transition-colors ${
+                className={cn(
+                  'flex items-center gap-2.5 text-sm px-3 py-2 rounded-md transition-colors',
                   active
-                    ? 'bg-neutral-800 text-white'
-                    : 'text-neutral-400 hover:text-white hover:bg-neutral-800/60'
-                }`}
+                    ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/60',
+                )}
               >
                 <Icon size={15} />
                 {label}
@@ -47,7 +50,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           })}
         </nav>
 
-        <div className="px-5 py-4 border-t border-neutral-800 flex items-center gap-2.5">
+        <div className="px-5 py-4 border-t border-border flex items-center gap-2.5">
           <UserButton
             appearance={{
               elements: {
@@ -55,14 +58,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               },
             }}
           />
-          <span className="text-xs text-neutral-500 flex items-center gap-1.5">
-            <Settings size={12} />
-            Settings
-          </span>
+          <span className="text-xs text-muted-foreground">Account</span>
         </div>
       </aside>
 
-      {/* Main content */}
       <main className="flex-1 overflow-auto">{children}</main>
     </div>
   )

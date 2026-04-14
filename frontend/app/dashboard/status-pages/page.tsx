@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '@clerk/nextjs'
 import {
   Plus,
@@ -9,16 +9,40 @@ import {
   Eye,
   EyeOff,
   ExternalLink,
-  X,
   Link2,
   Loader2,
 } from 'lucide-react'
+import { toast } from 'sonner'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Separator } from '@/components/ui/separator'
+import { Switch } from '@/components/ui/switch'
 import {
-  createApiClient,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from '@/components/ui/dialog'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { createApiClient,
   StatusPage,
   StatusPageCreate,
   Monitor,
 } from '@/lib/api'
+import { useStatusPages } from '@/hooks/use-api'
 
 const SLUG_REGEX = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/
 
@@ -31,46 +55,32 @@ function slugify(text: string): string {
 
 export default function StatusPagesPage() {
   const { getToken } = useAuth()
-
-  const [pages, setPages] = useState<StatusPage[]>([])
+  const { data: pages, isLoading, error } = useStatusPages()
   const [monitors, setMonitors] = useState<Monitor[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
   const [showCreate, setShowCreate] = useState(false)
   const [editingPage, setEditingPage] = useState<StatusPage | null>(null)
   const [deletingPage, setDeletingPage] = useState<StatusPage | null>(null)
 
-  const fetchData = useCallback(async () => {
-    try {
+  useEffect(() => {
+    async function fetchMonitors() {
       const token = await getToken()
       if (!token) return
-      const api = createApiClient(token)
-      const [p, m] = await Promise.all([
-        api.getStatusPages(),
-        api.getMonitors(),
-      ])
-      setPages(p)
-      setMonitors(m)
-      setError(null)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load')
-    } finally {
-      setLoading(false)
+      try {
+        const api = createApiClient(token)
+        setMonitors(await api.getMonitors())
+      } catch { /* useStatusPages handles error display */ }
     }
+    fetchMonitors()
   }, [getToken])
-
-  useEffect(() => {
-    fetchData()
-  }, [fetchData])
 
   async function handleCreate(data: StatusPageCreate) {
     const token = await getToken()
     if (!token) return
     const api = createApiClient(token)
     await api.createStatusPage(data)
+    toast.success('Status page created')
     setShowCreate(false)
-    await fetchData()
   }
 
   async function handleDelete(id: string) {
@@ -78,8 +88,8 @@ export default function StatusPagesPage() {
     if (!token) return
     const api = createApiClient(token)
     await api.deleteStatusPage(id)
+    toast.success('Status page deleted')
     setDeletingPage(null)
-    await fetchData()
   }
 
   async function handleEdit(
@@ -101,24 +111,19 @@ export default function StatusPagesPage() {
       ...removed.map((id) => api.removeMonitorFromStatusPage(page.id, id)),
     ])
 
+    toast.success('Status page updated')
     setEditingPage(null)
-    await fetchData()
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="px-8 py-8 max-w-5xl">
         <div className="flex items-center justify-between mb-8">
-          <div>
-            <div className="h-6 w-36 bg-neutral-800 rounded animate-pulse" />
-            <div className="h-4 w-52 bg-neutral-800 rounded animate-pulse mt-2" />
-          </div>
+          <div><Skeleton className="h-6 w-36 mb-2" /><Skeleton className="h-4 w-52" /></div>
         </div>
-        <div className="border border-neutral-800 rounded-xl p-6 space-y-4">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="h-10 bg-neutral-800/50 rounded animate-pulse" />
-          ))}
-        </div>
+        <Card className="p-6 space-y-4">
+          {[0, 1, 2].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
+        </Card>
       </div>
     )
   }
@@ -127,106 +132,85 @@ export default function StatusPagesPage() {
     <div className="px-8 py-8 max-w-5xl">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-xl font-semibold text-white">Status Pages</h1>
-          <p className="text-sm text-neutral-400 mt-1">
-            {pages.length} status page{pages.length !== 1 ? 's' : ''}
+          <h1 className="text-xl font-semibold">Status Pages</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {pages?.length ?? 0} status page{pages?.length !== 1 ? 's' : ''}
           </p>
         </div>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="flex items-center gap-1.5 text-sm bg-white text-black px-3 py-1.5 rounded-md font-medium hover:bg-neutral-200 transition-colors"
-        >
+        <Button size="sm" onClick={() => setShowCreate(true)}>
           <Plus size={14} />
           Create status page
-        </button>
+        </Button>
       </div>
 
-      {error && <p className="text-sm text-red-400 mb-4">{error}</p>}
+      {error && <p className="text-sm text-destructive mb-4">{error.message}</p>}
 
-      {pages.length === 0 && !error ? (
-        <div className="border border-neutral-800 rounded-xl p-12 text-center">
-          <p className="text-sm text-neutral-500 mb-4">No status pages yet</p>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="text-sm text-white underline underline-offset-2"
-          >
-            Create your first status page
-          </button>
-        </div>
+      {pages && pages.length === 0 && !error ? (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <p className="text-sm text-muted-foreground mb-4">No status pages yet</p>
+            <Button variant="link" onClick={() => setShowCreate(true)}>Create your first status page</Button>
+          </CardContent>
+        </Card>
       ) : (
-        <div className="border border-neutral-800 rounded-xl overflow-hidden">
-          <div className="grid grid-cols-[2fr_1.5fr_100px_80px_100px] gap-4 px-5 py-2.5 border-b border-neutral-800 bg-neutral-900/60">
-            <span className="text-xs text-neutral-500 font-medium">Title</span>
-            <span className="text-xs text-neutral-500 font-medium">Slug</span>
-            <span className="text-xs text-neutral-500 font-medium">Visibility</span>
-            <span className="text-xs text-neutral-500 font-medium">Monitors</span>
-            <span className="text-xs text-neutral-500 font-medium">Actions</span>
-          </div>
-
-          {pages.map((page, i) => (
-            <div
-              key={page.id}
-              className={`grid grid-cols-[2fr_1.5fr_100px_80px_100px] gap-4 px-5 py-3.5 items-center hover:bg-neutral-900 transition-colors ${
-                i > 0 ? 'border-t border-neutral-800' : ''
-              }`}
-            >
-              <span className="text-sm text-white truncate">{page.title}</span>
-              <a
-                href={`/status/${page.slug}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-sm text-neutral-400 hover:text-white truncate transition-colors"
-              >
-                <Link2 size={12} className="shrink-0" />
-                {page.slug}
-                <ExternalLink size={10} className="shrink-0 opacity-50" />
-              </a>
-              <span>
-                {page.is_public ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/15 text-emerald-400">
-                    <Eye size={10} />
-                    Public
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-neutral-500/15 text-neutral-400">
-                    <EyeOff size={10} />
-                    Private
-                  </span>
-                )}
-              </span>
-              <span className="text-xs text-neutral-400">
-                {page.monitors?.length ?? 0}
-              </span>
-              <span className="flex items-center gap-1">
-                <button
-                  onClick={() => setEditingPage(page)}
-                  className="p-1 text-neutral-500 hover:text-white transition-colors"
-                  title="Edit"
-                >
-                  <Pencil size={13} />
-                </button>
-                <button
-                  onClick={() => setDeletingPage(page)}
-                  className="p-1 text-neutral-500 hover:text-red-400 transition-colors"
-                  title="Delete"
-                >
-                  <Trash2 size={13} />
-                </button>
-              </span>
-            </div>
-          ))}
-        </div>
+        <Card>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Title</TableHead>
+                <TableHead>Slug</TableHead>
+                <TableHead>Visibility</TableHead>
+                <TableHead>Monitors</TableHead>
+                <TableHead className="w-[80px]">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {pages?.map((page) => (
+                <TableRow key={page.id}>
+                  <TableCell className="font-medium">{page.title}</TableCell>
+                  <TableCell>
+                    <a
+                      href={`/status/${page.slug}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <Link2 size={12} className="shrink-0" />
+                      {page.slug}
+                      <ExternalLink size={10} className="shrink-0 opacity-50" />
+                    </a>
+                  </TableCell>
+                  <TableCell>
+                    {page.is_public ? (
+                      <Badge className="bg-emerald-500/15 text-emerald-500 hover:bg-emerald-500/20"><Eye size={10} className="mr-1" />Public</Badge>
+                    ) : (
+                      <Badge variant="secondary"><EyeOff size={10} className="mr-1" />Private</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{page.monitors?.length ?? 0}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingPage(page)}>
+                        <Pencil size={13} />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeletingPage(page)}>
+                        <Trash2 size={13} />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
       )}
 
       {showCreate && (
-        <CreateModal
-          onClose={() => setShowCreate(false)}
-          onSubmit={handleCreate}
-        />
+        <CreateDialog onClose={() => setShowCreate(false)} onSubmit={handleCreate} />
       )}
 
       {editingPage && (
-        <EditModal
+        <EditDialog
           page={editingPage}
           monitors={monitors}
           onClose={() => setEditingPage(null)}
@@ -235,17 +219,13 @@ export default function StatusPagesPage() {
       )}
 
       {deletingPage && (
-        <DeleteModal
-          page={deletingPage}
-          onClose={() => setDeletingPage(null)}
-          onConfirm={() => handleDelete(deletingPage.id)}
-        />
+        <DeleteDialog page={deletingPage} onClose={() => setDeletingPage(null)} onConfirm={() => handleDelete(deletingPage.id)} />
       )}
     </div>
   )
 }
 
-function CreateModal({
+function CreateDialog({
   onClose,
   onSubmit,
 }: {
@@ -261,9 +241,7 @@ function CreateModal({
 
   function handleTitleChange(value: string) {
     setTitle(value)
-    if (!slugManual) {
-      setSlug(slugify(value))
-    }
+    if (!slugManual) setSlug(slugify(value))
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -283,81 +261,43 @@ function CreateModal({
   }
 
   return (
-    <ModalOverlay onClose={onClose}>
-      <form onSubmit={handleSubmit}>
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-semibold text-white">Create status page</h2>
-          <button type="button" onClick={onClose} className="text-neutral-500 hover:text-white transition-colors">
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="flex flex-col gap-5">
-          <Field label="Title">
-            <input
-              type="text"
-              required
-              placeholder="My Status Page"
-              value={title}
-              onChange={(e) => handleTitleChange(e.target.value)}
-              className="input"
-            />
-          </Field>
-
-          <Field label="Slug" icon={<Link2 size={13} className="text-neutral-500" />}>
-            <input
-              type="text"
-              required
-              placeholder="my-status-page"
-              value={slug}
-              onChange={(e) => {
-                setSlug(e.target.value)
-                setSlugManual(true)
-              }}
-              className="input font-mono"
-            />
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Create status page</DialogTitle>
+          <DialogDescription>Set up a new public or private status page for your services.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+          <div className="space-y-1.5">
+            <Label>Title</Label>
+            <Input required placeholder="My Status Page" value={title} onChange={(e) => handleTitleChange(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="flex items-center gap-1.5"><Link2 size={13} className="text-muted-foreground" />Slug</Label>
+            <Input required placeholder="my-status-page" value={slug} onChange={(e) => { setSlug(e.target.value); setSlugManual(true) }} className="font-mono" />
             {slug.length > 0 && !SLUG_REGEX.test(slug) && (
-              <p className="text-xs text-red-400 mt-1">
-                Only lowercase letters, numbers, and hyphens
-              </p>
+              <p className="text-xs text-destructive">Only lowercase letters, numbers, and hyphens</p>
             )}
-          </Field>
-
-          <Field label="Visibility">
-            <div className="flex items-center gap-3">
-              <Toggle checked={isPublic} onChange={setIsPublic} />
-              <span className="text-sm text-neutral-400">
-                {isPublic ? 'Anyone can view' : 'Only you can view'}
-              </span>
-            </div>
-          </Field>
-        </div>
-
-        {error && <p className="text-sm text-red-400 mt-4">{error}</p>}
-
-        <div className="flex gap-3 mt-6">
-          <button
-            type="submit"
-            disabled={saving}
-            className="flex items-center gap-1.5 bg-white text-black px-4 py-2 rounded-md text-sm font-medium hover:bg-neutral-200 transition-colors disabled:opacity-50"
-          >
-            {saving && <Loader2 size={14} className="animate-spin" />}
-            {saving ? 'Creating…' : 'Create status page'}
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 rounded-md text-sm text-neutral-400 hover:text-white transition-colors"
-          >
-            Cancel
-          </button>
-        </div>
-      </form>
-    </ModalOverlay>
+          </div>
+          <div className="flex items-center gap-3">
+            <Switch checked={isPublic} onCheckedChange={setIsPublic} />
+            <Label>{isPublic ? 'Anyone can view' : 'Only you can view'}</Label>
+          </div>
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
+            <Button type="submit" disabled={saving}>
+              {saving && <Loader2 size={14} className="animate-spin mr-1" />}
+              {saving ? 'Creating…' : 'Create status page'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }
 
-function EditModal({
+function EditDialog({
   page,
   monitors,
   onClose,
@@ -366,11 +306,7 @@ function EditModal({
   page: StatusPage
   monitors: Monitor[]
   onClose: () => void
-  onSubmit: (
-    data: { title: string; slug: string; is_public: boolean },
-    selectedIds: Set<string>,
-    currentMonitorIds: Set<string>,
-  ) => Promise<void>
+  onSubmit: (data: { title: string; slug: string; is_public: boolean }, selectedIds: Set<string>, currentMonitorIds: Set<string>) => Promise<void>
 }) {
   const { getToken } = useAuth()
   const [title, setTitle] = useState(page.title)
@@ -427,107 +363,69 @@ function EditModal({
   }
 
   return (
-    <ModalOverlay onClose={onClose}>
-      <form onSubmit={handleSubmit} className="max-h-[80vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-semibold text-white">Edit status page</h2>
-          <button type="button" onClick={onClose} className="text-neutral-500 hover:text-white transition-colors">
-            <X size={18} />
-          </button>
-        </div>
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Edit status page</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+          <div className="space-y-1.5">
+            <Label>Title</Label>
+            <Input required value={title} onChange={(e) => setTitle(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="flex items-center gap-1.5"><Link2 size={13} className="text-muted-foreground" />Slug</Label>
+            <Input required value={slug} onChange={(e) => setSlug(e.target.value)} className="font-mono" />
+            {!SLUG_REGEX.test(slug) && <p className="text-xs text-destructive">Only lowercase letters, numbers, and hyphens</p>}
+          </div>
+          <div className="flex items-center gap-3">
+            <Switch checked={isPublic} onCheckedChange={setIsPublic} />
+            <Label>{isPublic ? 'Anyone can view' : 'Only you can view'}</Label>
+          </div>
 
-        <div className="flex flex-col gap-5">
-          <Field label="Title">
-            <input
-              type="text"
-              required
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="input"
-            />
-          </Field>
+          <Separator />
 
-          <Field label="Slug" icon={<Link2 size={13} className="text-neutral-500" />}>
-            <input
-              type="text"
-              required
-              value={slug}
-              onChange={(e) => setSlug(e.target.value)}
-              className="input font-mono"
-            />
-            {!SLUG_REGEX.test(slug) && (
-              <p className="text-xs text-red-400 mt-1">
-                Only lowercase letters, numbers, and hyphens
-              </p>
+          <div>
+            <Label className="mb-3 block">Monitors</Label>
+            {fetchingMonitors ? (
+              <div className="space-y-2">
+                {[0, 1, 2].map((i) => <Skeleton key={i} className="h-8 w-full" />)}
+              </div>
+            ) : monitors.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No monitors available</p>
+            ) : (
+              <div className="max-h-48 overflow-y-auto space-y-1">
+                {monitors.map((monitor) => (
+                  <label key={monitor.id} className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-muted/50 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(monitor.id)}
+                      onChange={() => toggleMonitor(monitor.id)}
+                      className="h-3.5 w-3.5 rounded border-input accent-emerald-500"
+                    />
+                    <span className="text-sm flex-1 truncate">{monitor.name}</span>
+                    <span className="text-xs text-muted-foreground truncate max-w-[200px]">{monitor.url}</span>
+                  </label>
+                ))}
+              </div>
             )}
-          </Field>
+          </div>
 
-          <Field label="Visibility">
-            <div className="flex items-center gap-3">
-              <Toggle checked={isPublic} onChange={setIsPublic} />
-              <span className="text-sm text-neutral-400">
-                {isPublic ? 'Anyone can view' : 'Only you can view'}
-              </span>
-            </div>
-          </Field>
-        </div>
-
-        <div className="mt-6 pt-5 border-t border-neutral-800">
-          <h3 className="text-sm font-medium text-white mb-3">Monitors</h3>
-          {fetchingMonitors ? (
-            <div className="space-y-2">
-              {[0, 1, 2].map((i) => (
-                <div key={i} className="h-8 bg-neutral-800/50 rounded animate-pulse" />
-              ))}
-            </div>
-          ) : monitors.length === 0 ? (
-            <p className="text-sm text-neutral-500">No monitors available</p>
-          ) : (
-            <div className="max-h-48 overflow-y-auto space-y-0.5">
-              {monitors.map((monitor) => (
-                <label
-                  key={monitor.id}
-                  className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-neutral-800/60 cursor-pointer"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.has(monitor.id)}
-                    onChange={() => toggleMonitor(monitor.id)}
-                    className="h-3.5 w-3.5 rounded border-neutral-600 bg-neutral-800 accent-emerald-500"
-                  />
-                  <span className="text-sm text-neutral-300 flex-1 truncate">{monitor.name}</span>
-                  <span className="text-xs text-neutral-500 truncate max-w-[200px]">{monitor.url}</span>
-                </label>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {error && <p className="text-sm text-red-400 mt-4">{error}</p>}
-
-        <div className="flex gap-3 mt-6">
-          <button
-            type="submit"
-            disabled={saving}
-            className="flex items-center gap-1.5 bg-white text-black px-4 py-2 rounded-md text-sm font-medium hover:bg-neutral-200 transition-colors disabled:opacity-50"
-          >
-            {saving && <Loader2 size={14} className="animate-spin" />}
-            {saving ? 'Saving…' : 'Save changes'}
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 rounded-md text-sm text-neutral-400 hover:text-white transition-colors"
-          >
-            Cancel
-          </button>
-        </div>
-      </form>
-    </ModalOverlay>
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
+            <Button type="submit" disabled={saving}>
+              {saving && <Loader2 size={14} className="animate-spin mr-1" />}
+              {saving ? 'Saving…' : 'Save changes'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }
 
-function DeleteModal({
+function DeleteDialog({
   page,
   onClose,
   onConfirm,
@@ -550,98 +448,24 @@ function DeleteModal({
   }
 
   return (
-    <ModalOverlay onClose={onClose}>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-white">Delete status page</h2>
-        <button onClick={onClose} className="text-neutral-500 hover:text-white transition-colors">
-          <X size={18} />
-        </button>
-      </div>
-      <p className="text-sm text-neutral-400 mb-6">
-        Are you sure you want to delete{' '}
-        <span className="text-white font-medium">{page.title}</span>? This action cannot be undone.
-      </p>
-      {error && <p className="text-sm text-red-400 mb-4">{error}</p>}
-      <div className="flex gap-3">
-        <button
-          onClick={handleDelete}
-          disabled={deleting}
-          className="flex items-center gap-1.5 bg-red-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-red-600 transition-colors disabled:opacity-50"
-        >
-          {deleting && <Loader2 size={14} className="animate-spin" />}
-          <Trash2 size={14} />
-          {deleting ? 'Deleting…' : 'Delete'}
-        </button>
-        <button
-          onClick={onClose}
-          className="px-4 py-2 rounded-md text-sm text-neutral-400 hover:text-white transition-colors"
-        >
-          Cancel
-        </button>
-      </div>
-    </ModalOverlay>
-  )
-}
-
-function ModalOverlay({
-  onClose,
-  children,
-}: {
-  onClose: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="fixed inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-lg mx-4 bg-neutral-900 border border-neutral-800 rounded-xl shadow-xl p-6">
-        {children}
-      </div>
-    </div>
-  )
-}
-
-function Field({
-  label,
-  icon,
-  children,
-}: {
-  label: string
-  icon?: React.ReactNode
-  children: React.ReactNode
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label className="flex items-center gap-1.5 text-xs font-medium text-neutral-300">
-        {icon}
-        {label}
-      </label>
-      {children}
-    </div>
-  )
-}
-
-function Toggle({
-  checked,
-  onChange,
-}: {
-  checked: boolean
-  onChange: (v: boolean) => void
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-        checked ? 'bg-emerald-500' : 'bg-neutral-700'
-      }`}
-    >
-      <span
-        className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${
-          checked ? 'translate-x-4' : 'translate-x-0.5'
-        }`}
-      />
-    </button>
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Delete status page</DialogTitle>
+          <DialogDescription>
+            Are you sure you want to delete <strong>{page.title}</strong>? This action cannot be undone.
+          </DialogDescription>
+        </DialogHeader>
+        {error && <p className="text-sm text-destructive">{error}</p>}
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+            {deleting && <Loader2 size={14} className="animate-spin mr-1" />}
+            <Trash2 size={14} className="mr-1" />
+            {deleting ? 'Deleting…' : 'Delete'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
