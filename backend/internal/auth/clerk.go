@@ -28,6 +28,29 @@ func Init() error {
 	return nil
 }
 
+func ValidateToken(tokenString string) (string, error) {
+	token, err := jwt.Parse(tokenString, kf.Keyfunc)
+	if err != nil {
+		return "", fmt.Errorf("invalid token: %v", err)
+	}
+
+	if !token.Valid {
+		return "", fmt.Errorf("invalid token")
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return "", fmt.Errorf("invalid claims")
+	}
+
+	sub, ok := claims["sub"].(string)
+	if !ok {
+		return "", fmt.Errorf("missing sub claim")
+	}
+
+	return sub, nil
+}
+
 func Middleware() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		authHeader := c.Get("Authorization")
@@ -36,23 +59,9 @@ func Middleware() fiber.Handler {
 		}
 
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-		token, err := jwt.Parse(tokenString, kf.Keyfunc)
+		sub, err := ValidateToken(tokenString)
 		if err != nil {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid token: " + err.Error()})
-		}
-
-		if !token.Valid {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid token"})
-		}
-
-		claims, ok := token.Claims.(jwt.MapClaims)
-		if !ok {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid claims"})
-		}
-
-		sub, ok := claims["sub"].(string)
-		if !ok {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "missing sub claim"})
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": err.Error()})
 		}
 
 		// Store user ID in context

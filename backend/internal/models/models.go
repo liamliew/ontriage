@@ -51,3 +51,18 @@ type StatusPageMonitor struct {
 	StatusPageID string `json:"status_page_id" db:"status_page_id"`
 	MonitorID    string `json:"monitor_id" db:"monitor_id"`
 }
+
+type AlertChannel struct {
+	ID        string                 `json:"id,omitempty" db:"id"`
+	UserID    string                 `json:"user_id,omitempty" db:"user_id"`
+	Name      string                 `json:"name" db:"name"`
+	Type      string                 `json:"type" db:"type"`
+	Config    map[string]interface{} `json:"config" db:"config"`
+	IsActive  bool                   `json:"is_active" db:"is_active"`
+	CreatedAt *time.Time             `json:"created_at,omitempty" db:"created_at"`
+}
+
+type MonitorAlertChannel struct {
+	MonitorID      string `json:"monitor_id" db:"monitor_id"`
+	AlertChannelID string `json:"alert_channel_id" db:"alert_channel_id"`
+}

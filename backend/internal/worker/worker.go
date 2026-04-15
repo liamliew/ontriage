@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/ontriage/backend/internal/db"
+	"github.com/ontriage/backend/internal/hub"
 	"github.com/ontriage/backend/internal/integrations"
 	"github.com/ontriage/backend/internal/models"
 	"github.com/supabase-community/postgrest-go"
@@ -23,16 +24,20 @@ type Worker struct {
 	monitors   map[string]*models.Monitor
 	stopChans  map[string]chan struct{}
 	failures   map[string]int
+	lastStatus map[string]bool
 	mu         sync.RWMutex
 	httpClient *http.Client
+	hub        *hub.Hub
 }
 
-func NewWorker() *Worker {
+func NewWorker(h *hub.Hub) *Worker {
 	return &Worker{
 		monitors:   make(map[string]*models.Monitor),
 		stopChans:  make(map[string]chan struct{}),
 		failures:   make(map[string]int),
+		lastStatus: make(map[string]bool),
 		httpClient: &http.Client{},
+		hub:        h,
 	}
 }
 
@@ -93,6 +98,7 @@ func (w *Worker) reloadMonitors() {
 			delete(w.stopChans, id)
 			delete(w.monitors, id)
 			delete(w.failures, id)
+			delete(w.lastStatus, id)
 		}
 	}
 }
@@ -231,9 +237,39 @@ func (w *Worker) ping(m *models.Monitor) {
 		}
 	}
 
-	_, _, err := db.Client.From("pings").Insert(p, false, "", "", "exact").Execute()
+	data, _, err := db.Client.From("pings").Insert(p, false, "", "", "exact").Execute()
 	if err != nil {
 		log.Printf("Error saving ping for %s: %v", m.Name, err)
+	} else {
+		var inserted []models.Ping
+		if json.Unmarshal(data, &inserted) == nil && len(inserted) > 0 {
+			p = inserted[0]
+		}
+	}
+
+	w.hub.SendToUser(m.UserID, hub.Event{
+		Type:    "ping.result",
+		Payload: p,
+	})
+
+	w.mu.Lock()
+	lastUp, ok := w.lastStatus[m.ID]
+	w.mu.Unlock()
+
+	if !ok || lastUp != p.IsUp {
+		w.mu.Lock()
+		w.lastStatus[m.ID] = p.IsUp
+		w.mu.Unlock()
+
+		w.hub.SendToUser(m.UserID, hub.Event{
+			Type: "monitor.status_changed",
+			Payload: map[string]interface{}{
+				"monitor_id": m.ID,
+				"name":       m.Name,
+				"is_up":      p.IsUp,
+				"checked_at": p.CheckedAt,
+			},
+		})
 	}
 
 	w.handleIncident(m, p.IsUp)
@@ -268,13 +304,20 @@ func (w *Worker) handleIncident(m *models.Monitor, isUp bool) {
 			StartedAt:  time.Now(),
 			IsResolved: false,
 		}
-		_, _, err = db.Client.From("incidents").Insert(newIncident, false, "", "", "exact").Execute()
+		data, _, err = db.Client.From("incidents").Insert(newIncident, false, "", "", "exact").Execute()
 		if err == nil {
-			_ = integrations.FirePagerDutyAlert(
-				fmt.Sprintf("Monitor Down: %s", m.Name),
-				m.URL,
-				m.ID,
-			)
+			var inserted []models.Incident
+			if json.Unmarshal(data, &inserted) == nil && len(inserted) > 0 {
+				newIncident = inserted[0]
+			}
+			w.hub.SendToUser(m.UserID, hub.Event{
+				Type: "incident.created",
+				Payload: map[string]interface{}{
+					"incident":     newIncident,
+					"monitor_name": m.Name,
+				},
+			})
+			w.fireAlerts(m, newIncident, false)
 		}
 	} else if isUp && hasActiveIncident {
 		resolvedAt := time.Now()
@@ -284,7 +327,52 @@ func (w *Worker) handleIncident(m *models.Monitor, isUp bool) {
 		}, "", "exact").Eq("id", lastIncident[0].ID).Execute()
 
 		if err == nil {
-			_ = integrations.ResolvePagerDutyAlert(m.ID)
+			lastIncident[0].ResolvedAt = &resolvedAt
+			lastIncident[0].IsResolved = true
+			w.hub.SendToUser(m.UserID, hub.Event{
+				Type: "incident.resolved",
+				Payload: map[string]interface{}{
+					"incident":     lastIncident[0],
+					"monitor_name": m.Name,
+				},
+			})
+			w.fireAlerts(m, lastIncident[0], true)
+		}
+	}
+}
+
+func (w *Worker) fireAlerts(m *models.Monitor, incident models.Incident, isResolve bool) {
+	var macs []models.MonitorAlertChannel
+	data, _, err := db.Client.From("monitor_alert_channels").Select("*", "exact", false).Eq("monitor_id", m.ID).Execute()
+	if err == nil {
+		_ = json.Unmarshal(data, &macs)
+	}
+
+	if len(macs) == 0 {
+		if isResolve {
+			_ = integrations.ResolvePagerDutyAlert(m.ID, "")
+		} else {
+			_ = integrations.FirePagerDutyAlert(fmt.Sprintf("Monitor Down: %s", m.Name), m.URL, m.ID, "")
+		}
+		return
+	}
+
+	channelIDs := make([]string, len(macs))
+	for i, mac := range macs {
+		channelIDs[i] = mac.AlertChannelID
+	}
+
+	var channels []models.AlertChannel
+	cData, _, err := db.Client.From("alert_channels").Select("*", "exact", false).In("id", channelIDs).Eq("is_active", "true").Execute()
+	if err == nil {
+		_ = json.Unmarshal(cData, &channels)
+	}
+
+	for _, ch := range channels {
+		if isResolve {
+			_ = integrations.ResolveAlert(ch, *m, incident)
+		} else {
+			_ = integrations.FireAlert(ch, *m, incident)
 		}
 	}
 }

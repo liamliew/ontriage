@@ -471,3 +471,164 @@ func GetStatusPage(c *fiber.Ctx) error {
 		"monitors":    enrichedMonitors,
 	})
 }
+
+func GetAlertChannels(c *fiber.Ctx) error {
+	userID := c.Locals("userID").(string)
+	var channels []models.AlertChannel
+	data, _, err := db.Client.From("alert_channels").Select("*", "exact", false).Eq("user_id", userID).Execute()
+	if err != nil {
+		sentry.CaptureException(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	_ = json.Unmarshal(data, &channels)
+	if channels == nil {
+		channels = []models.AlertChannel{}
+	}
+	return c.JSON(channels)
+}
+
+func CreateAlertChannel(c *fiber.Ctx) error {
+	userID := c.Locals("userID").(string)
+	var channel models.AlertChannel
+	if err := c.BodyParser(&channel); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+	channel.UserID = userID
+
+	data, _, err := db.Client.From("alert_channels").Insert(channel, false, "", "", "exact").Execute()
+	if err != nil {
+		sentry.CaptureException(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	
+	var created []models.AlertChannel
+	if err := json.Unmarshal(data, &created); err == nil && len(created) > 0 {
+		channel = created[0]
+	}
+	
+	return c.Status(fiber.StatusCreated).JSON(channel)
+}
+
+func UpdateAlertChannel(c *fiber.Ctx) error {
+	userID := c.Locals("userID").(string)
+	id := c.Params("id")
+	var updates map[string]interface{}
+	if err := c.BodyParser(&updates); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	_, _, err := db.Client.From("alert_channels").Update(updates, "", "exact").Eq("id", id).Eq("user_id", userID).Execute()
+	if err != nil {
+		sentry.CaptureException(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.SendStatus(fiber.StatusOK)
+}
+
+func DeleteAlertChannel(c *fiber.Ctx) error {
+	userID := c.Locals("userID").(string)
+	id := c.Params("id")
+
+	_, _, err := db.Client.From("alert_channels").Delete("", "exact").Eq("id", id).Eq("user_id", userID).Execute()
+	if err != nil {
+		sentry.CaptureException(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+func AttachAlertChannelToMonitor(c *fiber.Ctx) error {
+	userID := c.Locals("userID").(string)
+	monitorID := c.Params("id")
+	
+	var payload struct {
+		AlertChannelID string `json:"alert_channel_id"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	// Verify ownership of monitor
+	_, _, err := db.Client.From("monitors").Select("id", "exact", false).Eq("id", monitorID).Eq("user_id", userID).Single().Execute()
+	if err != nil {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "forbidden monitor"})
+	}
+	
+	// Verify ownership of alert channel
+	_, _, err = db.Client.From("alert_channels").Select("id", "exact", false).Eq("id", payload.AlertChannelID).Eq("user_id", userID).Single().Execute()
+	if err != nil {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "forbidden alert channel"})
+	}
+
+	mac := models.MonitorAlertChannel{
+		MonitorID:      monitorID,
+		AlertChannelID: payload.AlertChannelID,
+	}
+
+	_, _, err = db.Client.From("monitor_alert_channels").Insert(mac, false, "", "", "exact").Execute()
+	if err != nil {
+		sentry.CaptureException(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.SendStatus(fiber.StatusCreated)
+}
+
+func DetachAlertChannelFromMonitor(c *fiber.Ctx) error {
+	userID := c.Locals("userID").(string)
+	monitorID := c.Params("id")
+	channelID := c.Params("channelId")
+
+	// Verify ownership of monitor
+	_, _, err := db.Client.From("monitors").Select("id", "exact", false).Eq("id", monitorID).Eq("user_id", userID).Single().Execute()
+	if err != nil {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "forbidden monitor"})
+	}
+
+	_, _, err = db.Client.From("monitor_alert_channels").Delete("", "exact").Eq("monitor_id", monitorID).Eq("alert_channel_id", channelID).Execute()
+	if err != nil {
+		sentry.CaptureException(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+func GetMonitorAlertChannels(c *fiber.Ctx) error {
+	userID := c.Locals("userID").(string)
+	monitorID := c.Params("id")
+
+	// Verify ownership of monitor
+	_, _, err := db.Client.From("monitors").Select("id", "exact", false).Eq("id", monitorID).Eq("user_id", userID).Single().Execute()
+	if err != nil {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "forbidden monitor"})
+	}
+
+	var macs []models.MonitorAlertChannel
+	data, _, err := db.Client.From("monitor_alert_channels").Select("*", "exact", false).Eq("monitor_id", monitorID).Execute()
+	if err != nil {
+		sentry.CaptureException(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	_ = json.Unmarshal(data, &macs)
+
+	if len(macs) == 0 {
+		return c.JSON([]models.AlertChannel{})
+	}
+
+	channelIDs := make([]string, len(macs))
+	for i, mac := range macs {
+		channelIDs[i] = mac.AlertChannelID
+	}
+
+	var channels []models.AlertChannel
+	cData, _, err := db.Client.From("alert_channels").Select("*", "exact", false).In("id", channelIDs).Execute()
+	if err != nil {
+		sentry.CaptureException(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	_ = json.Unmarshal(cData, &channels)
+	if channels == nil {
+		channels = []models.AlertChannel{}
+	}
+
+	return c.JSON(channels)
+}

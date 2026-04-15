@@ -121,6 +121,38 @@ export interface PaginatedPings {
   total: number
 }
 
+export interface AlertChannel {
+  id: string
+  user_id: string
+  name: string
+  type: 'pagerduty' | 'email' | 'webhook' | 'slack'
+  config: Record<string, string>
+  is_active: boolean
+  created_at: string
+}
+
+export interface AlertChannelCreate {
+  name: string
+  type: 'pagerduty' | 'email' | 'webhook' | 'slack'
+  config: Record<string, string>
+}
+
+export interface AlertChannelUpdate {
+  name?: string
+  config?: Record<string, string>
+  is_active?: boolean
+}
+
+export interface MonitorAlertChannel {
+  monitor_id: string
+  alert_channel_id: string
+}
+
+export interface WebSocketEvent {
+  type: 'ping.result' | 'monitor.status_changed' | 'incident.created' | 'incident.resolved'
+  payload: unknown
+}
+
 async function apiFetch<T>(
   path: string,
   token: string,
@@ -213,6 +245,38 @@ export function createApiClient(token: string) {
 
     getStatusPageBySlug: (slug: string) =>
       apiFetch<PublicStatusPageResponse>(`/status/${slug}`, token),
+
+    getAlertChannels: () =>
+      apiFetch<AlertChannel[]>('/alert-channels', token),
+
+    createAlertChannel: (data: AlertChannelCreate) =>
+      apiFetch<AlertChannel>('/alert-channels', token, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    updateAlertChannel: (id: string, data: AlertChannelUpdate) =>
+      apiFetch<AlertChannel>(`/alert-channels/${id}`, token, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+
+    deleteAlertChannel: (id: string) =>
+      apiFetch<void>(`/alert-channels/${id}`, token, { method: 'DELETE' }),
+
+    getMonitorAlertChannels: (monitorId: string) =>
+      apiFetch<AlertChannel[]>(`/monitors/${monitorId}/alert-channels`, token),
+
+    attachAlertChannel: (monitorId: string, channelId: string) =>
+      apiFetch<void>(`/monitors/${monitorId}/alert-channels`, token, {
+        method: 'POST',
+        body: JSON.stringify({ alert_channel_id: channelId }),
+      }),
+
+    detachAlertChannel: (monitorId: string, channelId: string) =>
+      apiFetch<void>(`/monitors/${monitorId}/alert-channels/${channelId}`, token, {
+        method: 'DELETE',
+      }),
   }
 }
 

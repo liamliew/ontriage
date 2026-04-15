@@ -21,8 +21,10 @@ type PagerDutyPayload struct {
 	Severity string `json:"severity"`
 }
 
-func FirePagerDutyAlert(summary, source, dedupKey string) error {
-	routingKey := os.Getenv("PAGERDUTY_ROUTING_KEY")
+func FirePagerDutyAlert(summary, source, dedupKey, routingKey string) error {
+	if routingKey == "" {
+		routingKey = os.Getenv("PAGERDUTY_ROUTING_KEY")
+	}
 	if routingKey == "" {
 		return fmt.Errorf("PAGERDUTY_ROUTING_KEY is not set")
 	}
@@ -56,8 +58,10 @@ func FirePagerDutyAlert(summary, source, dedupKey string) error {
 	return nil
 }
 
-func ResolvePagerDutyAlert(dedupKey string) error {
-	routingKey := os.Getenv("PAGERDUTY_ROUTING_KEY")
+func ResolvePagerDutyAlert(dedupKey, routingKey string) error {
+	if routingKey == "" {
+		routingKey = os.Getenv("PAGERDUTY_ROUTING_KEY")
+	}
 	if routingKey == "" {
 		return fmt.Errorf("PAGERDUTY_ROUTING_KEY is not set")
 	}
