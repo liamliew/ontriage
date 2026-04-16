@@ -3,6 +3,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL!
 export interface Monitor {
   id: string
   name: string
+  description?: string
   url: string
   method: string
   interval_sec: number
@@ -16,10 +17,13 @@ export interface Monitor {
   expected_status: number
   timeout_sec: number
   incident_threshold: number
+  ssl_check_enabled?: boolean
+  ssl_notify_days?: number[]
 }
 
 export interface MonitorCreate {
   name: string
+  description?: string
   url: string
   method: string
   interval_sec: number
@@ -28,10 +32,13 @@ export interface MonitorCreate {
   expected_status: number
   timeout_sec: number
   incident_threshold: number
+  ssl_check_enabled?: boolean
+  ssl_notify_days?: number[]
 }
 
 export interface MonitorUpdate {
   name?: string
+  description?: string
   url?: string
   method?: string
   interval_sec?: number
@@ -41,6 +48,8 @@ export interface MonitorUpdate {
   expected_status?: number
   timeout_sec?: number
   incident_threshold?: number
+  ssl_check_enabled?: boolean
+  ssl_notify_days?: number[]
 }
 
 export interface Ping {
@@ -149,8 +158,26 @@ export interface MonitorAlertChannel {
 }
 
 export interface WebSocketEvent {
-  type: 'ping.result' | 'monitor.status_changed' | 'incident.created' | 'incident.resolved'
+  type: 'ping.result' | 'monitor.status_changed' | 'incident.created' | 'incident.resolved' | 'ssl.expiry_warning'
   payload: unknown
+}
+
+export interface SSLCheck {
+  id: string
+  monitor_id: string
+  checked_at: string
+  expiry_date: string | null
+  days_remaining: number
+  is_valid: boolean
+  error_message: string
+}
+
+export interface UserPreferences {
+  user_id: string
+  timezone: string
+  ssl_alert_threshold_days: number
+  created_at: string
+  updated_at: string
 }
 
 async function apiFetch<T>(
@@ -276,6 +303,26 @@ export function createApiClient(token: string) {
     detachAlertChannel: (monitorId: string, channelId: string) =>
       apiFetch<void>(`/monitors/${monitorId}/alert-channels/${channelId}`, token, {
         method: 'DELETE',
+      }),
+
+    getMonitorSSL: (id: string) =>
+      apiFetch<SSLCheck>(`/monitors/${id}/ssl`, token),
+
+    getMonitorSSLHistory: (id: string) =>
+      apiFetch<SSLCheck[]>(`/monitors/${id}/ssl/history`, token),
+
+    getUserPreferences: () =>
+      apiFetch<UserPreferences>('/users/me', token),
+
+    updateUserPreferences: (data: Partial<UserPreferences>) =>
+      apiFetch<UserPreferences>('/users/me', token, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+
+    testAlertChannel: (id: string) =>
+      apiFetch<{ message: string }>(`/alert-channels/${id}/test`, token, {
+        method: 'POST',
       }),
   }
 }

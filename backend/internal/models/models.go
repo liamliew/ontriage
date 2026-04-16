@@ -3,19 +3,41 @@ package models
 import "time"
 
 type Monitor struct {
-	ID                string            `json:"id,omitempty" db:"id"`
-	UserID            string            `json:"user_id,omitempty" db:"user_id"`
-	Name              string            `json:"name" db:"name"`
-	URL               string            `json:"url" db:"url"`
-	Method            string            `json:"method,omitempty" db:"method"`
-	IntervalSec       int               `json:"interval_sec" db:"interval_sec"`
-	IsActive          bool              `json:"is_active,omitempty" db:"is_active"`
-	Headers           map[string]string `json:"headers,omitempty" db:"headers"`
-	Keyword           string            `json:"keyword,omitempty" db:"keyword"`
-	ExpectedStatus    int               `json:"expected_status" db:"expected_status"`
-	TimeoutSec        int               `json:"timeout_sec" db:"timeout_sec"`
-	IncidentThreshold int               `json:"incident_threshold" db:"incident_threshold"`
-	CreatedAt         *time.Time        `json:"created_at,omitempty" db:"created_at"`
+	ID                     string            `json:"id,omitempty" db:"id"`
+	UserID                 string            `json:"user_id,omitempty" db:"user_id"`
+	Name                   string            `json:"name" db:"name"`
+	URL                    string            `json:"url" db:"url"`
+	Method                 string            `json:"method,omitempty" db:"method"`
+	IntervalSec            int               `json:"interval_sec" db:"interval_sec"`
+	IsActive               bool              `json:"is_active,omitempty" db:"is_active"`
+	Headers                map[string]string `json:"headers,omitempty" db:"headers"`
+	Keyword                string            `json:"keyword,omitempty" db:"keyword"`
+	ExpectedStatus         int               `json:"expected_status" db:"expected_status"`
+	TimeoutSec             int               `json:"timeout_sec" db:"timeout_sec"`
+	IncidentThreshold      int               `json:"incident_threshold" db:"incident_threshold"`
+	CreatedAt              *time.Time        `json:"created_at,omitempty" db:"created_at"`
+	Description            string            `json:"description,omitempty" db:"description"`
+	SSLCheckEnabled        bool              `json:"ssl_check_enabled" db:"ssl_check_enabled"`
+	SSLExpiryThresholdDays int               `json:"ssl_expiry_threshold_days" db:"ssl_expiry_threshold_days"`
+	SSLNotifyDays          []int             `json:"ssl_notify_days" db:"ssl_notify_days"`
+}
+
+type SSLCheck struct {
+	ID            string     `json:"id,omitempty" db:"id"`
+	MonitorID     string     `json:"monitor_id" db:"monitor_id"`
+	CheckedAt     time.Time  `json:"checked_at" db:"checked_at"`
+	ExpiryDate    *time.Time `json:"expiry_date" db:"expiry_date"`
+	DaysRemaining int        `json:"days_remaining" db:"days_remaining"`
+	IsValid       bool       `json:"is_valid" db:"is_valid"`
+	ErrorMessage  string     `json:"error_message,omitempty" db:"error_message"`
+}
+
+type UserPreferences struct {
+	UserID                string     `json:"user_id" db:"user_id"`
+	Timezone              string     `json:"timezone" db:"timezone"`
+	SSLAlertThresholdDays int        `json:"ssl_alert_threshold_days" db:"ssl_alert_threshold_days"`
+	CreatedAt             *time.Time `json:"created_at,omitempty" db:"created_at"`
+	UpdatedAt             *time.Time `json:"updated_at,omitempty" db:"updated_at"`
 }
 
 type Ping struct {

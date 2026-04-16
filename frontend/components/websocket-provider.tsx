@@ -16,6 +16,12 @@ interface IncidentPayload {
   monitor_name: string
 }
 
+interface SSLExpiryPayload {
+  monitor_id: string
+  monitor_name: string
+  days_remaining: number
+}
+
 export function WebSocketProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient()
   const { lastEvent } = useWebSocket()
@@ -70,6 +76,14 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
           queryClient.invalidateQueries({ queryKey: ['monitors', p.monitor_id, 'incidents'] })
         }
         toast.success(`Monitor recovered: ${p.monitor_name}`)
+        break
+      }
+      case 'ssl.expiry_warning': {
+        const p = payload as SSLExpiryPayload
+        if (p.monitor_id) {
+          queryClient.invalidateQueries({ queryKey: ['monitors', p.monitor_id, 'ssl'] })
+        }
+        toast.warning(`SSL expiring soon: ${p.monitor_name} — ${p.days_remaining} days remaining`)
         break
       }
     }

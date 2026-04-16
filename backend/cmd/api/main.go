@@ -119,9 +119,15 @@ func main() {
 	apiRoutes.Get("/:id/incidents", api.GetIncidents)
 	apiRoutes.Get("/:id/uptime", api.GetUptime)
 	apiRoutes.Get("/:id/stats", api.GetStats)
+	apiRoutes.Get("/:id/ssl", api.GetMonitorSSL)
+	apiRoutes.Get("/:id/ssl/history", api.GetMonitorSSLHistory)
 	apiRoutes.Get("/:id/alert-channels", api.GetMonitorAlertChannels)
 	apiRoutes.Post("/:id/alert-channels", api.AttachAlertChannelToMonitor)
 	apiRoutes.Delete("/:id/alert-channels/:channelId", api.DetachAlertChannelFromMonitor)
+
+	userRoutes := app.Group("/users", auth.Middleware())
+	userRoutes.Get("/me", api.GetUserPreferences)
+	userRoutes.Patch("/me", api.UpdateUserPreferences)
 
 	alertRoutes := app.Group("/alert-channels", auth.Middleware())
 	alertRoutes.Get("/", api.GetAlertChannels)

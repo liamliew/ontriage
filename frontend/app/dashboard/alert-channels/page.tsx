@@ -13,6 +13,7 @@ import {
   Webhook,
   MessageSquare,
   ArrowLeft,
+  Send,
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
@@ -80,6 +81,19 @@ function typeBadgeVariant(type: ChannelType) {
   }
 }
 
+function channelDestination(channel: AlertChannel) {
+  switch (channel.type) {
+    case 'email':
+      return <span className="text-xs text-muted-foreground font-mono truncate max-w-[200px]">{channel.config.to ?? '—'}</span>
+    case 'pagerduty':
+      return <span className="text-xs text-muted-foreground">PagerDuty service</span>
+    case 'webhook':
+      return <span className="text-xs text-muted-foreground font-mono truncate max-w-[200px]">{(channel.config.url ?? '').length > 40 ? `${channel.config.url.slice(0, 40)}…` : channel.config.url || '—'}</span>
+    case 'slack':
+      return <span className="text-xs text-muted-foreground">Slack webhook</span>
+  }
+}
+
 export default function AlertChannelsPage() {
   const { getToken } = useAuth()
   const queryClient = useQueryClient()
@@ -88,6 +102,7 @@ export default function AlertChannelsPage() {
   const [showCreate, setShowCreate] = useState(false)
   const [editingChannel, setEditingChannel] = useState<AlertChannel | null>(null)
   const [deletingChannel, setDeletingChannel] = useState<AlertChannel | null>(null)
+  const [testingId, setTestingId] = useState<string | null>(null)
 
   async function handleToggleActive(channel: AlertChannel) {
     const token = await getToken()
@@ -113,6 +128,21 @@ export default function AlertChannelsPage() {
       setDeletingChannel(null)
     } catch {
       toast.error('Failed to delete channel')
+    }
+  }
+
+  async function handleTest(id: string) {
+    const token = await getToken()
+    if (!token) return
+    setTestingId(id)
+    try {
+      const api = createApiClient(token)
+      await api.testAlertChannel(id)
+      toast.success('Test alert sent successfully')
+    } catch {
+      toast.error('Failed to send test alert')
+    } finally {
+      setTestingId(null)
     }
   }
 
@@ -164,8 +194,9 @@ export default function AlertChannelsPage() {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Type</TableHead>
+                <TableHead>Destination</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="w-[80px]">Actions</TableHead>
+                <TableHead className="w-[120px]">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -179,6 +210,7 @@ export default function AlertChannelsPage() {
                 >
                   <TableCell className="font-medium">{channel.name}</TableCell>
                   <TableCell>{typeBadgeVariant(channel.type)}</TableCell>
+                  <TableCell>{channelDestination(channel)}</TableCell>
                   <TableCell>
                     <Switch
                       checked={channel.is_active}
@@ -187,6 +219,19 @@ export default function AlertChannelsPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        disabled={testingId === channel.id}
+                        onClick={() => handleTest(channel.id)}
+                      >
+                        {testingId === channel.id ? (
+                          <Loader2 size={13} className="animate-spin" />
+                        ) : (
+                          <Send size={13} />
+                        )}
+                      </Button>
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingChannel(channel)}>
                         <Pencil size={13} />
                       </Button>

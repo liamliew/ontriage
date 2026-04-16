@@ -21,23 +21,25 @@ import (
 )
 
 type Worker struct {
-	monitors   map[string]*models.Monitor
-	stopChans  map[string]chan struct{}
-	failures   map[string]int
-	lastStatus map[string]bool
-	mu         sync.RWMutex
-	httpClient *http.Client
-	hub        *hub.Hub
+	monitors     map[string]*models.Monitor
+	stopChans    map[string]chan struct{}
+	failures     map[string]int
+	lastStatus   map[string]bool
+	lastSSLAlert map[string]int
+	mu           sync.RWMutex
+	httpClient   *http.Client
+	hub          *hub.Hub
 }
 
 func NewWorker(h *hub.Hub) *Worker {
 	return &Worker{
-		monitors:   make(map[string]*models.Monitor),
-		stopChans:  make(map[string]chan struct{}),
-		failures:   make(map[string]int),
-		lastStatus: make(map[string]bool),
-		httpClient: &http.Client{},
-		hub:        h,
+		monitors:     make(map[string]*models.Monitor),
+		stopChans:    make(map[string]chan struct{}),
+		failures:     make(map[string]int),
+		lastStatus:   make(map[string]bool),
+		lastSSLAlert: make(map[string]int),
+		httpClient:   &http.Client{},
+		hub:          h,
 	}
 }
 
@@ -47,6 +49,8 @@ func (w *Worker) Start(ctx context.Context) {
 
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
+
+	go w.sslLoop(ctx)
 
 	for {
 		select {
@@ -272,10 +276,10 @@ func (w *Worker) ping(m *models.Monitor) {
 		})
 	}
 
-	w.handleIncident(m, p.IsUp)
+	w.handleIncident(m, p, p.IsUp)
 }
 
-func (w *Worker) handleIncident(m *models.Monitor, isUp bool) {
+func (w *Worker) handleIncident(m *models.Monitor, p models.Ping, isUp bool) {
 	w.mu.Lock()
 	if isUp {
 		w.failures[m.ID] = 0
@@ -317,7 +321,7 @@ func (w *Worker) handleIncident(m *models.Monitor, isUp bool) {
 					"monitor_name": m.Name,
 				},
 			})
-			w.fireAlerts(m, newIncident, false)
+			w.fireAlerts(m, newIncident, p, false)
 		}
 	} else if isUp && hasActiveIncident {
 		resolvedAt := time.Now()
@@ -336,12 +340,12 @@ func (w *Worker) handleIncident(m *models.Monitor, isUp bool) {
 					"monitor_name": m.Name,
 				},
 			})
-			w.fireAlerts(m, lastIncident[0], true)
+			w.fireAlerts(m, lastIncident[0], p, true)
 		}
 	}
 }
 
-func (w *Worker) fireAlerts(m *models.Monitor, incident models.Incident, isResolve bool) {
+func (w *Worker) fireAlerts(m *models.Monitor, incident models.Incident, lastPing models.Ping, isResolve bool) {
 	var macs []models.MonitorAlertChannel
 	data, _, err := db.Client.From("monitor_alert_channels").Select("*", "exact", false).Eq("monitor_id", m.ID).Execute()
 	if err == nil {
@@ -370,9 +374,13 @@ func (w *Worker) fireAlerts(m *models.Monitor, incident models.Incident, isResol
 
 	for _, ch := range channels {
 		if isResolve {
-			_ = integrations.ResolveAlert(ch, *m, incident)
+			_ = integrations.ResolveAlert(ch, *m, incident, lastPing)
 		} else {
-			_ = integrations.FireAlert(ch, *m, incident)
+			_ = integrations.FireAlert(ch, *m, incident, lastPing)
+		}
+	}
+}
+grations.FireAlert(ch, *m, incident, lastPing)
 		}
 	}
 }

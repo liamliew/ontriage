@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { UserButton } from '@clerk/nextjs'
-import { LayoutDashboard, Activity, Globe, Bell } from 'lucide-react'
+import { LayoutDashboard, Activity, Globe, Bell, Settings } from 'lucide-react'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { ConnectionStatus } from '@/components/connection-status'
 import { WebSocketProvider } from '@/components/websocket-provider'
@@ -14,6 +14,7 @@ const navItems = [
   { href: '/dashboard/monitors', label: 'Monitors', Icon: Activity },
   { href: '/dashboard/status-pages', label: 'Status Pages', Icon: Globe },
   { href: '/dashboard/alert-channels', label: 'Alert Channels', Icon: Bell },
+  { href: '/dashboard/settings', label: 'Settings', Icon: Settings },
 ]
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -27,7 +28,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <Link href="/dashboard" className="font-semibold text-foreground tracking-tight text-sm">
               OnTriage
             </Link>
-            <ThemeToggle />
+            <div className="flex items-center gap-2">
+              <ConnectionStatus />
+              <ThemeToggle />
+            </div>
           </div>
 
           <nav className="flex-1 px-3 py-4 flex flex-col gap-0.5">
@@ -55,7 +59,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </nav>
 
           <div className="px-5 py-4 border-t border-border flex items-center gap-2.5">
-            <ConnectionStatus />
             <UserButton
               appearance={{
                 elements: {

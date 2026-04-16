@@ -632,3 +632,106 @@ func GetMonitorAlertChannels(c *fiber.Ctx) error {
 
 	return c.JSON(channels)
 }
+
+func GetMonitorSSL(c *fiber.Ctx) error {
+	userID := c.Locals("userID").(string)
+	id := c.Params("id")
+
+	// Verify ownership
+	_, _, err := db.Client.From("monitors").Select("id", "exact", false).Eq("id", id).Eq("user_id", userID).Single().Execute()
+	if err != nil {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "forbidden monitor"})
+	}
+
+	var checks []models.SSLCheck
+	data, _, err := db.Client.From("ssl_checks").Select("*", "exact", false).Eq("monitor_id", id).Order("checked_at", &postgrest.OrderOpts{Ascending: false}).Limit(1, "").Execute()
+	if err != nil {
+		sentry.CaptureException(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	_ = json.Unmarshal(data, &checks)
+	
+	if len(checks) == 0 {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "no ssl check found"})
+	}
+	
+	return c.JSON(checks[0])
+}
+
+func GetMonitorSSLHistory(c *fiber.Ctx) error {
+	userID := c.Locals("userID").(string)
+	id := c.Params("id")
+
+	// Verify ownership
+	_, _, err := db.Client.From("monitors").Select("id", "exact", false).Eq("id", id).Eq("user_id", userID).Single().Execute()
+	if err != nil {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "forbidden monitor"})
+	}
+
+	var checks []models.SSLCheck
+	data, _, err := db.Client.From("ssl_checks").Select("*", "exact", false).Eq("monitor_id", id).Order("checked_at", &postgrest.OrderOpts{Ascending: false}).Limit(30, "").Execute()
+	if err != nil {
+		sentry.CaptureException(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	_ = json.Unmarshal(data, &checks)
+	
+	if checks == nil {
+		checks = []models.SSLCheck{}
+	}
+	
+	return c.JSON(checks)
+}
+
+func GetUserPreferences(c *fiber.Ctx) error {
+	userID := c.Locals("userID").(string)
+
+	var prefs []models.UserPreferences
+	data, _, err := db.Client.From("user_preferences").Select("*", "exact", false).Eq("user_id", userID).Limit(1, "").Execute()
+	if err != nil {
+		sentry.CaptureException(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	_ = json.Unmarshal(data, &prefs)
+
+	if len(prefs) == 0 {
+		return c.JSON(models.UserPreferences{
+			UserID:                userID,
+			Timezone:              "UTC",
+			SSLAlertThresholdDays: 30,
+		})
+	}
+
+	return c.JSON(prefs[0])
+}
+
+func UpdateUserPreferences(c *fiber.Ctx) error {
+	userID := c.Locals("userID").(string)
+
+	var updates struct {
+		Timezone              *string `json:"timezone"`
+		SSLAlertThresholdDays *int    `json:"ssl_alert_threshold_days"`
+	}
+	if err := c.BodyParser(&updates); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	payload := map[string]interface{}{
+		"user_id":    userID,
+		"updated_at": time.Now(),
+	}
+	if updates.Timezone != nil {
+		payload["timezone"] = *updates.Timezone
+	}
+	if updates.SSLAlertThresholdDays != nil {
+		payload["ssl_alert_threshold_days"] = *updates.SSLAlertThresholdDays
+	}
+
+	_, _, err := db.Client.From("user_preferences").Upsert(payload, "", "exact", "").Execute()
+	if err != nil {
+		sentry.CaptureException(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	
+	return c.SendStatus(fiber.StatusOK)
+}

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { format, differenceInMinutes } from 'date-fns'
+import { format, differenceInMinutes, formatDistanceToNow } from 'date-fns'
 import { motion } from 'framer-motion'
 import { useAuth } from '@clerk/nextjs'
 import { useQueryClient } from '@tanstack/react-query'
@@ -28,14 +28,20 @@ import {
   MessageSquare,
   Mail,
   Webhook as WebhookIcon,
+  Shield,
+  ShieldAlert,
+  ShieldCheck,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Table,
   TableBody,
@@ -83,6 +89,7 @@ import {
 } from '@/hooks/use-api'
 import { useAlertChannels } from '@/hooks/useAlertChannels'
 import { useMonitorAlertChannels } from '@/hooks/useMonitorAlertChannels'
+import { useMonitorSSL } from '@/hooks/useMonitorSSL'
 
 function formatInterval(sec: number) {
   if (sec < 60) return `${sec}s`
@@ -141,6 +148,7 @@ function MonitorDetail({ id }: { id: string }) {
   const { data: uptime } = useMonitorUptime(id)
   const { data: stats } = useMonitorStats(id)
   const { data: incidents } = useMonitorIncidents(id)
+  const { data: sslData, isLoading: sslLoading } = useMonitorSSL(id)
   const [page, setPage] = useState(1)
   const { data: pingsData, isLoading: pingsLoading } = useMonitorPings(id, page)
 
@@ -153,6 +161,8 @@ function MonitorDetail({ id }: { id: string }) {
   const totalDowntimeMs = resolvedIncidents.reduce((sum, i) => {
     return sum + (formatDurationFromDates(i.started_at, i.resolved_at) ?? 0)
   }, 0)
+
+  const isHttps = monitor.url.startsWith('https://')
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="px-8 py-8 max-w-4xl">
@@ -171,6 +181,11 @@ function MonitorDetail({ id }: { id: string }) {
             <span className="font-mono">{monitor.url}</span>
           </p>
           <span className="text-xs font-mono text-muted-foreground/60 mt-1">{monitor.method} &middot; every {formatInterval(monitor.interval_sec)}</span>
+          {monitor.description && (
+            <p className="text-sm text-muted-foreground mt-2" style={{ fontFamily: 'var(--font-ibm-plex-sans)' }}>
+              {monitor.description}
+            </p>
+          )}
         </div>
         <Link href="/dashboard/monitors">
           <Button variant="ghost" size="sm">
@@ -196,6 +211,64 @@ function MonitorDetail({ id }: { id: string }) {
           className={totalDowntimeMs > 0 ? 'text-red-500' : 'text-emerald-500'}
         />
       </div>
+
+      {isHttps && monitor.ssl_check_enabled !== false && (
+        <section className="mb-10">
+          <h2 className="flex items-center gap-2 text-sm font-medium mb-3">
+            <Shield size={14} className="text-muted-foreground" />
+            SSL Certificate
+          </h2>
+          {sslLoading ? (
+            <Card><CardContent className="p-4"><Skeleton className="h-16 w-full" /></CardContent></Card>
+          ) : sslData ? (
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+              <Card>
+                <CardContent className="p-4 flex items-center gap-6">
+                  <div className="flex items-center gap-3">
+                    {sslData.is_valid ? (
+                      <ShieldCheck size={20} className="text-emerald-500" />
+                    ) : (
+                      <ShieldAlert size={20} className="text-red-500" />
+                    )}
+                    <div>
+                      <div className="flex items-center gap-2 mb-0.5">
+                        {sslData.is_valid ? (
+                          <Badge className="bg-emerald-500/15 text-emerald-500 hover:bg-emerald-500/20 text-xs">Valid</Badge>
+                        ) : (
+                          <Badge variant="destructive" className="text-xs">Invalid</Badge>
+                        )}
+                        {sslData.error_message && (
+                          <span className="text-xs text-destructive">{sslData.error_message}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        {sslData.expiry_date && (
+                          <span>Expires {format(new Date(sslData.expiry_date), 'dd MMM yyyy')}</span>
+                        )}
+                        <span className={cn(
+                          'font-medium',
+                          sslData.days_remaining > 30 && 'text-emerald-500',
+                          sslData.days_remaining >= 14 && sslData.days_remaining <= 30 && 'text-amber-500',
+                          sslData.days_remaining < 14 && 'text-red-500',
+                        )}>
+                          {sslData.days_remaining} days remaining
+                        </span>
+                        {sslData.checked_at && (
+                          <span>Checked {formatDistanceToNow(new Date(sslData.checked_at), { addSuffix: true })}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ) : (
+            <Card>
+              <CardContent className="p-4 text-sm text-muted-foreground">SSL monitoring not available</CardContent>
+            </Card>
+          )}
+        </section>
+      )}
 
       {stats && stats.days.length > 0 && (
         <section className="mb-10">
@@ -425,6 +498,26 @@ function MonitorDetail({ id }: { id: string }) {
                   </div>
                 </>
               )}
+              <Separator className="my-4" />
+              <p className="text-xs text-muted-foreground font-medium mb-3">SSL settings</p>
+              <div className="flex items-center gap-3 mb-3">
+                <Switch checked={monitor.ssl_check_enabled ?? false} disabled />
+                <Label>SSL certificate monitoring</Label>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Notify me when cert expires in</p>
+                <div className="flex items-center gap-3 mt-1">
+                  {[30, 14, 7].map((days) => (
+                    <Badge
+                      key={days}
+                      variant={(monitor.ssl_notify_days ?? []).includes(days) ? 'default' : 'secondary'}
+                      className="text-xs"
+                    >
+                      {days} days
+                    </Badge>
+                  ))}
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

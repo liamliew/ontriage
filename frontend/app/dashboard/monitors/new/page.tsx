@@ -3,15 +3,17 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@clerk/nextjs'
-import { ArrowLeft, Globe, Clock, Plus, X, ChevronRight } from 'lucide-react'
+import { ArrowLeft, Globe, Clock, Plus, X, ChevronRight, Shield } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { cn } from '@/lib/utils'
-import { createApiClient, MonitorCreate } from '@/lib/api'
+import { createApiClient, type MonitorCreate } from '@/lib/api'
 import { toast } from 'sonner'
 
 const INTERVALS = [
@@ -24,6 +26,8 @@ const INTERVALS = [
 
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']
 
+const SSL_NOTIFY_OPTIONS = [30, 14, 7]
+
 interface HeaderRow {
   key: string
   value: string
@@ -34,6 +38,7 @@ export default function NewMonitorPage() {
   const { getToken } = useAuth()
 
   const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
   const [url, setUrl] = useState('')
   const [method, setMethod] = useState('GET')
   const [intervalSec, setIntervalSec] = useState('60')
@@ -43,6 +48,8 @@ export default function NewMonitorPage() {
   const [timeoutSec, setTimeoutSec] = useState('10')
   const [incidentThreshold, setIncidentThreshold] = useState('2')
   const [advancedOpen, setAdvancedOpen] = useState(false)
+  const [sslCheckEnabled, setSslCheckEnabled] = useState(false)
+  const [sslNotifyDays, setSslNotifyDays] = useState<number[]>([30])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -58,6 +65,12 @@ export default function NewMonitorPage() {
     setHeaders(headers.map((h, i) => (i === index ? { ...h, [field]: val } : h)))
   }
 
+  function toggleSslNotifyDay(day: number) {
+    setSslNotifyDays((prev) =>
+      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day].sort((a, b) => a - b)
+    )
+  }
+
   function buildPayload(): MonitorCreate {
     const filledHeaders = headers.filter((h) => h.key.trim())
     const headersObj = filledHeaders.length > 0
@@ -65,6 +78,7 @@ export default function NewMonitorPage() {
       : {}
     return {
       name,
+      description: description.trim() || undefined,
       url,
       method,
       interval_sec: Number(intervalSec),
@@ -73,6 +87,8 @@ export default function NewMonitorPage() {
       incident_threshold: Number(incidentThreshold),
       headers: headersObj,
       keyword: keyword.trim(),
+      ssl_check_enabled: sslCheckEnabled || undefined,
+      ssl_notify_days: sslCheckEnabled ? sslNotifyDays : undefined,
     }
   }
 
@@ -108,6 +124,16 @@ export default function NewMonitorPage() {
         <div className="space-y-1.5">
           <Label>Name</Label>
           <Input required placeholder="My API" value={name} onChange={(e) => setName(e.target.value)} />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label>Description</Label>
+          <Textarea
+            placeholder="Optional description for this monitor"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={2}
+          />
         </div>
 
         <div className="space-y-1.5">
@@ -180,6 +206,40 @@ export default function NewMonitorPage() {
                   <Input type="number" min={1} max={10} value={incidentThreshold} onChange={(e) => setIncidentThreshold(e.target.value)} />
                 </div>
               </div>
+
+              <Separator className="my-1" />
+
+              <div>
+                <div className="flex items-center gap-3 mb-3">
+                  <Switch checked={sslCheckEnabled} onCheckedChange={setSslCheckEnabled} />
+                  <Label className="flex items-center gap-1.5">
+                    <Shield size={13} className="text-muted-foreground" />
+                    SSL certificate monitoring
+                  </Label>
+                </div>
+                {sslCheckEnabled && (
+                  <div className="ml-0.5">
+                    <Label className="text-xs text-muted-foreground mb-2 block">Notify me when cert expires in</Label>
+                    <div className="flex items-center gap-2">
+                      {SSL_NOTIFY_OPTIONS.map((day) => (
+                        <button
+                          key={day}
+                          type="button"
+                          onClick={() => toggleSslNotifyDay(day)}
+                          className={cn(
+                            'px-3 py-1.5 rounded-md text-xs font-medium border transition-colors',
+                            sslNotifyDays.includes(day)
+                              ? 'bg-primary text-primary-foreground border-primary'
+                              : 'bg-background text-muted-foreground border-border hover:bg-muted',
+                          )}
+                        >
+                          {day} days
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </CollapsibleContent>
         </Collapsible>
@@ -198,4 +258,8 @@ export default function NewMonitorPage() {
       </form>
     </motion.div>
   )
+}
+
+function Separator({ className }: { className?: string }) {
+  return <div className={cn('h-px bg-border', className)} />
 }

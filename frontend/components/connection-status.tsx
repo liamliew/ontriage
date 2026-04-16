@@ -18,18 +18,26 @@ export function ConnectionStatus() {
   }[status]
 
   const label = {
-    connected: 'Connected',
-    reconnecting: 'Reconnecting…',
+    connected: 'Live',
+    reconnecting: 'Reconnecting...',
     disconnected: 'Disconnected',
   }[status]
 
   return (
     <Tooltip>
-      <TooltipTrigger className="flex items-center">
+      <TooltipTrigger className="flex items-center gap-1.5">
         <span className={cn('h-2 w-2 rounded-full', color, status === 'reconnecting' && 'animate-pulse')} />
+        <span className={cn(
+          'text-xs',
+          status === 'connected' && 'text-emerald-500',
+          status === 'reconnecting' && 'text-yellow-500',
+          status === 'disconnected' && 'text-red-500',
+        )}>
+          {label}
+        </span>
       </TooltipTrigger>
       <TooltipContent side="right" className="text-xs">
-        {label}
+        {status === 'connected' ? 'Connected to real-time updates' : status === 'reconnecting' ? 'Attempting to reconnect...' : 'Disconnected from server'}
       </TooltipContent>
     </Tooltip>
   )
