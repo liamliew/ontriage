@@ -380,7 +380,3 @@ func (w *Worker) fireAlerts(m *models.Monitor, incident models.Incident, lastPin
 		}
 	}
 }
-grations.FireAlert(ch, *m, incident, lastPing)
-		}
-	}
-}
