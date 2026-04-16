@@ -48,25 +48,25 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-:root {
+ :root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
+  --primary: #5e17eb;
+  --primary-foreground: #ffffff;
+  --secondary: #cb6ce6;
+  --secondary-foreground: #0a0a0a;
+  --muted: #f8f7ff;
   --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --accent: #1800ad;
+  --accent-foreground: #ffffff;
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --ring: #5e17eb;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -75,46 +75,58 @@
   --radius: 0.5rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-primary: #5e17eb;
+  --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: oklch(0.97 0 0);
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --ontriage-primary: #5e17eb;
+  --ontriage-secondary: #cb6ce6;
+  --ontriage-accent: #1800ad;
+  --ontriage-bg: #ffffff;
+  --ontriage-surface: #f8f7ff;
+  --ontriage-text: #0a0a0a;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
+  --background: #0a0a0f;
+  --foreground: #f8f7ff;
+  --card: #12101a;
+  --card-foreground: #f8f7ff;
+  --popover: #12101a;
+  --popover-foreground: #f8f7ff;
+  --primary: #cb6ce6;
+  --primary-foreground: #0a0a0f;
+  --secondary: #5e17eb;
+  --secondary-foreground: #f8f7ff;
+  --muted: #12101a;
   --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  --accent: #a855f7;
+  --accent-foreground: #f8f7ff;
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --ring: #cb6ce6;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar: #12101a;
+  --sidebar-foreground: #f8f7ff;
+  --sidebar-primary: #cb6ce6;
+  --sidebar-primary-foreground: #0a0a0f;
+  --sidebar-accent: #12101a;
+  --sidebar-accent-foreground: #f8f7ff;
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+  --ontriage-primary: #cb6ce6;
+  --ontriage-secondary: #5e17eb;
+  --ontriage-accent: #a855f7;
+  --ontriage-bg: #0a0a0f;
+  --ontriage-surface: #12101a;
+  --ontriage-text: #f8f7ff;
 }
 
 @layer base {
@@ -130,4 +142,26 @@
   h1, h2, h3, h4 {
     font-family: var(--font-heading), var(--font-sans), ui-sans-serif, system-ui, sans-serif;
   }
+}
+
+.pixel-texture {
+  background-image: radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.pixel-texture-subtle {
+  background-image: radial-gradient(circle, rgba(94,23,235,0.08) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.dark .pixel-texture-subtle {
+  background-image: radial-gradient(circle, rgba(203,108,230,0.06) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.pixel-blast-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
 }
